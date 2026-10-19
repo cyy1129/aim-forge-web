@@ -2,6 +2,14 @@
 
 无构建步骤的浏览器 FPS 瞄准训练器，支持八种玩法、可活动的人形机器人和玩家走位。使用 Canvas 绘制透视场景，人物由带深度和光照的几何部件构成，渲染和射线判定共用头、躯干、四肢模型。
 
+## 公网试玩与部署
+
+GitHub Pages 地址：https://cyy1129.github.io/aim-forge-web/
+
+访客无需登录。页面不加载外部字体、脚本或接口，所有运行资源都随站点部署。仓库的 dist 目录可直接交给任何静态托管服务。
+
+GitHub Pages 发布源为 gh-pages 分支根目录，保留 .nojekyll 文件。更新 dist 后，可使用 git subtree split 导出 dist 目录，再将结果推送到发布分支。GitHub Pages 会重新发布。
+
 ## 本地运行
 
 在项目目录运行：
@@ -48,4 +56,4 @@
 
 主要文件：dist/core.mjs 为几何和训练逻辑，dist/render.mjs 为透视场景与人物渲染，dist/app.mjs 为输入、状态与记录。静态部署配置位于 .openai/hosting.json。
 
-本项目与 KovaaK’s 无隶属关系。界面字体通过 Google Fonts 加载，离线时使用系统字体。
+本项目与 KovaaK’s 无隶属关系。界面使用系统字体，无需访问 Google Fonts。
