@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111517"><meta name="description" content="AIM FORGE 浏览器瞄准训练场。练习点射、跟枪和目标切换，找到自己的节奏。"><title>AIM FORGE · 瞄准训练场</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><a class="brand" href="./" aria-label="AIM FORGE 首页"><span class="brandmark">⌖</span> AIM<span>FORGE</span><i>瞄准训练场</i></a><div class="header-right"><span class="local-status"><b></b> 本地训练 · 无需注册</span><button class="icon-btn" id="sound" aria-label="切换命中音效" aria-pressed="true">音效 开</button></div></header>
+<main>
+<section class="intro"><div><div class="eyebrow">YOUR DAILY AIM ROUTINE</div><h1>每一次命中，<span>都更进一步。</span></h1><p>专注准星，找到手感。现在开始你的下一轮训练。</p></div><div class="session-count"><strong id="sessionCount">00</strong><span>已完成训练</span></div></section>
+<div class="workspace">
+<aside class="settings">
+<div class="section-heading"><h2>训练项目</h2><span>01 — 03</span></div>
+<div class="mode-list" role="group" aria-label="选择训练项目">
+<button class="mode active" data-mode="flick"><span class="mode-icon">⌖</span><span><strong>精准点射 <small>01</small></strong><em>FLICKING</em><p>快速定位，干净利落地命中</p></span><b>↗</b></button>
+<button class="mode" data-mode="track"><span class="mode-icon">◎</span><span><strong>平滑跟枪 <small>02</small></strong><em>TRACKING</em><p>按住左键，持续追踪移动目标</p></span><b>↗</b></button>
+<button class="mode" data-mode="switch"><span class="mode-icon">⁙</span><span><strong>目标切换 <small>03</small></strong><em>SWITCHING</em><p>在多个目标间建立瞄准节奏</p></span><b>↗</b></button>
+</div>
+<div class="section-heading parameters"><h2>训练参数</h2><button class="text-btn" id="resetSettings">重置</button></div>
+<label class="field">训练时长 <select id="duration"><option value="30">30 秒 · 热身</option><option value="60" selected>60 秒 · 标准</option><option value="120">120 秒 · 耐力</option></select></label>
+<label class="field">难度 <select id="difficulty"><option value="easy">入门</option><option value="normal" selected>标准</option><option value="hard">挑战</option></select></label>
+<label class="range-label" for="sensitivity">鼠标灵敏度 <output id="sensitivityValue">1.00</output></label><input type="range" id="sensitivity" min="0.2" max="3" step="0.05" value="1"><div class="range-hint"><span>精准控制</span><span>快速转向</span></div>
+<label class="range-label" for="fov">水平视野 FOV <output id="fovValue">103°</output></label><input type="range" id="fov" min="70" max="120" step="1" value="103">
+<label class="toggle-line"><span>FPS 鼠标锁定<small>启用灵敏度，体验自由转向</small></span><input type="checkbox" id="lockMouse" checked></label>
+<p class="settings-note">灵敏度为本站倍率。关闭鼠标锁定可使用普通光标或触屏；灵敏度仅对锁定模式生效。</p>
+</aside>
+<section class="training">
+<div class="arena-top"><div><span class="live-dot"></span><strong id="modeTitle">精准点射</strong><span class="tag" id="modeTag">FLICKING</span></div><button class="text-btn" id="fullscreen">⛶ 全屏训练</button></div>
+<div class="stats"><div><span>得分 <small>SCORE</small></span><strong id="score">0</strong></div><div><span id="accuracyLabel">命中率 <small>ACCURACY</small></span><strong id="accuracy">—<i>%</i></strong></div><div><span id="reactionLabel">平均反应 <small>REACTION</small></span><strong id="reaction">—<i>ms</i></strong></div><div><span>剩余时间 <small>TIME LEFT</small></span><strong id="timer">01:00</strong></div></div>
+<div class="arena" id="arena"><canvas id="canvas" aria-label="瞄准训练区域：左键射击，空格暂停，R重新开始" tabindex="0"></canvas><div class="arena-label">TRAINING ROOM <span>/ 01</span></div><div class="arena-axis">Y ↑<br>└── X</div><div class="overlay" id="overlay"><div class="overlay-content"><div class="ready-icon">⌖</div><span class="eyebrow">FOCUS. CLICK. REPEAT.</span><h2 id="overlayTitle">进入专注状态</h2><p id="overlayDescription">将准星对准绿色球体，点击左键命中目标。</p><button class="primary" id="start">开始训练 <span>↗</span></button><small id="overlayHint">60 秒，让肌肉记住每一次精准。</small></div></div><div class="countdown" id="countdown" hidden></div><div class="paused-controls" id="pausedControls" hidden><button id="quit">结束本轮</button></div><div class="arena-bottom"><span><b></b> <span id="arenaStatus">准备就绪</span></span><span>瞄准，从这里开始。</span></div><div class="time-progress" id="timeProgress"></div></div>
+<div class="controls-help"><span><kbd>鼠标左键</kbd> <span id="shootHelp">射击</span></span><span><kbd>SPACE</kbd> 暂停</span><span><kbd>R</kbd> 重新开始</span><span><kbd>ESC</kbd> 释放鼠标并暂停</span></div>
+<section class="history"><div class="section-heading"><h2>最近训练 <span class="history-caption">一点一滴，都在进步。</span></h2><button id="clearHistory" class="text-btn">清空记录</button></div><div class="history-table"><table><thead><tr><th>训练项目</th><th>时间</th><th>配置</th><th>得分</th><th>命中 / 追踪率</th><th>平均反应</th></tr></thead><tbody id="historyBody"></tbody></table><div id="emptyHistory">你的第一轮训练，从现在开始。<span>完成训练后，成绩会自动保存在此浏览器。</span></div></div></section>
+</section></div>
+<footer><span><b>AIM FORGE</b> · BUILT FOR BETTER AIM</span><span>建议使用桌面浏览器与鼠标体验 <i>↗</i></span></footer>
+</main><script type="module" src="app.mjs"></script>
+</body></html>
