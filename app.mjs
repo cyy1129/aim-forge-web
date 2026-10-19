@@ -1,47 +1,210 @@
-import{clamp,modes,project,rayFromScreen,Session}from'./core.mjs';
-const $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext('2d'),arena=$('arena');
-let width=1,height=1,state='idle',mode='flick',session=null,camera={yaw:0,pitch:0},cursor={x:0,y:0},held=false,count=0,last=0,flash=0,particles=[],audio=null,sound=true,storageAvailable=true,mouseFallback=false;
-let history=[];try{history=JSON.parse(localStorage.getItem('aimforge-history')||'[]');if(!Array.isArray(history))history=[];history=history.filter(r=>r&&modes[r.mode]&&Number.isFinite(r.score)&&Number.isFinite(r.date)&&Number.isFinite(r.accuracy)).slice(0,20)}catch{storageAvailable=false}
-const settings=['duration','difficulty','sensitivity','fov','lockMouse'];
-try{const prefs=JSON.parse(localStorage.getItem('aimforge-settings')||'null');if(prefs){for(const id of settings){if(prefs[id]!==undefined){if(id==='lockMouse')$(id).checked=!!prefs[id];else $(id).value=prefs[id]}}}}catch{}
-function saveSettings(){const prefs={};for(const id of settings)prefs[id]=id==='lockMouse'?$(id).checked:$(id).value;try{localStorage.setItem('aimforge-settings',JSON.stringify(prefs))}catch{};syncLabels()}
-function syncLabels(){$('sensitivityValue').textContent=Number($('sensitivity').value).toFixed(2);$('fovValue').textContent=$('fov').value+'°';if(state==='idle')$('timer').textContent=time(Number($('duration').value));if(state==='idle')$('overlayHint').textContent=$('duration').value+' 秒，让肌肉记住每一次精准。'}
-for(const id of settings)$(id).addEventListener('input',saveSettings);
-$('resetSettings').onclick=()=>{if(state==='running'||state==='countdown'||state==='paused')return;for(const [id,val]of Object.entries({duration:60,difficulty:'normal',sensitivity:1,fov:103}))$(id).value=val;$('lockMouse').checked=true;saveSettings()};
-function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
-function setControls(disabled){for(const id of settings)$(id).disabled=disabled;document.querySelectorAll('.mode').forEach(b=>b.disabled=disabled);$('resetSettings').disabled=disabled}
-function renderHistory(){$('sessionCount').textContent=String(history.length).padStart(2,'0');$('emptyHistory').hidden=!!history.length;$('historyBody').replaceChildren();for(const r of history.slice(0,5)){const row=document.createElement('tr');const d=new Date(r.date);const values=[modes[r.mode].name,d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),`${({easy:'入门',normal:'标准',hard:'挑战'})[r.difficulty]||'标准'} · ${r.duration}秒`,Math.round(r.score).toLocaleString(),Number(r.accuracy).toFixed(1)+'%',r.reaction===null?'—':Math.round(r.reaction)+' ms'];for(const v of values){const cell=document.createElement('td');cell.textContent=v;row.append(cell)}$('historyBody').append(row)}$('clearHistory').disabled=!history.length}
-$('clearHistory').onclick=()=>{if(!history.length||!confirm('清空当前浏览器中的训练记录？'))return;history=[];try{localStorage.removeItem('aimforge-history')}catch{}renderHistory()};
-function selectMode(next){mode=next;document.querySelectorAll('.mode').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',String(b.dataset.mode===mode))});$('modeTitle').textContent=modes[mode].name;$('modeTag').textContent=modes[mode].tag;$('shootHelp').textContent=mode==='track'?'按住跟随':'射击';$('accuracyLabel').innerHTML=mode==='track'?'追踪率 <small>ON TARGET</small>':'命中率 <small>ACCURACY</small>';$('reactionLabel').innerHTML=mode==='track'?'有效追踪 <small>ON TARGET TIME</small>':'平均反应 <small>REACTION</small>';state='idle';session=null;camera={yaw:0,pitch:0};showOverlay('进入专注状态',mode==='track'?'按住左键，让准星持续跟随移动球体。追踪率按全程时间计算。':'将准星对准绿色球体，点击左键命中目标。','开始训练');updateStats();syncLabels()}
-document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>selectMode(b.dataset.mode));
-function showOverlay(title,description,button){$('overlay').hidden=false;$('overlayTitle').textContent=title;$('overlayDescription').textContent=description;$('start').textContent=button+' ↗';$('countdown').hidden=true;arena.classList.remove('playing')}
-function updateStats(){const s=session;$('score').textContent=s?s.score.toLocaleString():'0';$('accuracy').innerHTML=(s&&(mode==='track'?s.elapsed:s.shots)?s.accuracy.toFixed(1):'—')+'<i>%</i>';$('reaction').innerHTML=mode==='track'?(s?s.trackOn.toFixed(1):'—')+'<i>s</i>':(s&&s.reaction!==null?Math.round(s.reaction):'—')+'<i>ms</i>';$('timer').textContent=time(s?s.duration-s.elapsed:Number($('duration').value));$('timeProgress').style.width=(s?100*(1-s.elapsed/s.duration):100)+'%'}
-function beep(freq=700){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.type='sine';o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.6,audio.currentTime+.055);g.gain.setValueAtTime(.06,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.07);o.start();o.stop(audio.currentTime+.08)}catch{}}
-$('sound').onclick=()=>{sound=!sound;$('sound').textContent='音效 '+(sound?'开':'关');$('sound').setAttribute('aria-pressed',String(sound))};
-async function acquireMouse(){if(!$('lockMouse').checked)return true;try{await canvas.requestPointerLock();if(document.pointerLockElement!==canvas)throw Error();return true}catch{$('lockMouse').checked=false;mouseFallback=true;saveSettings();return true}}
-async function start(restart=false){if(state==='countdown')return;beep(400);const resume=state==='paused'&&!restart;if(!await acquireMouse())return;if(!resume){session=new Session(mode,$('difficulty').value,Number($('duration').value));camera={yaw:0,pitch:0};particles=[];cursor={x:width/2,y:height/2}}held=false;state='countdown';count=3;setControls(true);$('overlay').hidden=true;$('pausedControls').hidden=true;$('countdown').hidden=false;$('countdown').textContent='3';$('arenaStatus').textContent='训练即将开始';arena.classList.add('playing');canvas.focus();updateStats()}
+import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets} from './core.mjs';
+import {Renderer} from './render.mjs';
+
+const $=id=>document.getElementById(id),canvas=$('canvas'),arena=$('arena'),renderer=new Renderer(canvas);
+const freshCamera=()=>({yaw:0,pitch:0,x:0,y:0,z:3});
+let state='idle',mode='strafe',session=null,preview=null,camera=freshCamera(),cursor={x:0,y:0};
+let held=false,rightHeld=false,count=0,last=0,flash=0,shot=0,particles=[],audio=null,sound=true,storageAvailable=true,mouseFallback=false,starting=false;
+const keys=new Set(),settings=['duration','difficulty','targetModel','movement','sensitivity','fov','lockMouse'];
+const booleanSettings=new Set(['lockMouse','movement']);
+let history=[];
+try {
+  history=JSON.parse(localStorage.getItem('aimforge-history')||'[]');
+  if(!Array.isArray(history))history=[];
+  history=history.filter(r=>r&&modes[r.mode]&&Number.isFinite(r.score)&&Number.isFinite(r.date)&&Number.isFinite(r.accuracy)).slice(0,20);
+}catch{storageAvailable=false;}
+try {
+  const prefs=JSON.parse(localStorage.getItem('aimforge-settings')||'null');
+  if(prefs)for(const id of settings)if(prefs[id]!==undefined){
+    if(booleanSettings.has(id))$(id).checked=!!prefs[id];
+    else {const before=$(id).value;$(id).value=prefs[id];if(!$(id).value)$(id).value=before;}
+  }
+}catch{}
+function persistSettings(){
+  const prefs={};for(const id of settings)prefs[id]=booleanSettings.has(id)?$(id).checked:$(id).value;
+  try{localStorage.setItem('aimforge-settings',JSON.stringify(prefs));}catch{}
+}
+function syncLabels(){
+  $('sensitivityValue').textContent=Number($('sensitivity').value).toFixed(2);
+  $('fovValue').textContent=$('fov').value+'°';
+  if(state==='idle'){
+    $('timer').textContent=time(Number($('duration').value));
+    $('overlayHint').textContent=$('duration').value+' 秒 · '+($('targetModel').value==='human'?'头部命中加成 · ':'')+($('movement').checked?'WASD 移动已开启':'固定站位训练');
+  }
+}
+for(const id of settings)$(id).addEventListener('input',()=>{
+  persistSettings();syncLabels();
+  if(id==='targetModel'||id==='difficulty')makePreview();
+});
+$('resetSettings').onclick=()=>{
+  if(!['idle','result'].includes(state))return;
+  for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'human',sensitivity:1,fov:103}))$(id).value=val;
+  $('lockMouse').checked=true;$('movement').checked=true;persistSettings();selectMode(mode);
+};
+function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function setControls(disabled){
+  for(const id of settings)$(id).disabled=disabled;
+  document.querySelectorAll('.mode').forEach(b=>b.disabled=disabled);
+  $('resetSettings').disabled=disabled;
+}
+function renderHistory(){
+  $('sessionCount').textContent=String(history.length).padStart(2,'0');$('emptyHistory').hidden=!!history.length;$('historyBody').replaceChildren();
+  for(const r of history.slice(0,5)){
+    const row=document.createElement('tr'),d=new Date(r.date);
+    const config=({easy:'入门',normal:'标准',hard:'挑战'})[r.difficulty]+' · '+r.duration+'秒 · '+(r.model==='human'?'人形':'球体');
+    const values=[modes[r.mode].name,d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),config,Math.round(r.score).toLocaleString(),Number(r.accuracy).toFixed(1)+'%',(r.kills??'—')+' / '+(r.headshots??'—')];
+    for(const value of values){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
+    $('historyBody').append(row);
+  }
+  $('clearHistory').disabled=!history.length;
+}
+$('clearHistory').onclick=()=>{
+  if(!history.length||!confirm('清空当前浏览器中的训练记录？'))return;
+  history=[];try{localStorage.removeItem('aimforge-history');}catch{}renderHistory();
+};
+for(const [id,m]of Object.entries(modes)){
+  const button=document.createElement('button');button.className='mode';button.dataset.mode=id;
+  button.innerHTML='<span class="mode-icon">'+m.icon+'</span><span><strong>'+m.name+'</strong><em>'+m.tag+'</em><p>'+m.description+'</p></span>';
+  button.onclick=()=>selectMode(id);$('modeList').append(button);
+}
+function makePreview(){preview=new Session(mode,$('difficulty').value,120,$('targetModel').value);}
+function selectMode(next){
+  mode=next;state='idle';session=null;camera=freshCamera();keys.clear();held=false;particles=[];
+  document.querySelectorAll('.mode').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',String(b.dataset.mode===mode));});
+  const m=modes[mode];$('modeTitle').textContent=m.name;$('modeTag').textContent=m.tag;
+  $('shootHelp').textContent=m.kind==='click'?'单发点射':m.kind==='damage'?'按住连射':'按住跟随';
+  $('accuracyLabel').innerHTML=m.kind==='track'?'追踪率 <small>ON TARGET</small>':'命中率 <small>ACCURACY</small>';
+  $('reactionLabel').innerHTML=m.kind==='track'?'有效追踪 <small>ON TARGET TIME</small>':'平均击倒间隔 <small>ELIMINATION</small>';
+  showOverlay('移动、瞄准、命中。',m.description+'。'+(m.kind==='damage'?'目标有 100 点生命，击倒后自动补充。':''),'开始训练');
+  $('pausedControls').hidden=true;$('arenaStatus').textContent='准备就绪 · '+modes[mode].count+' 个目标';
+  makePreview();updateStats();syncLabels();
+}
+function showOverlay(title,description,button){
+  $('overlay').hidden=false;$('overlayTitle').textContent=title;$('overlayDescription').textContent=description;
+  $('start').textContent=button+' ↗';$('countdown').hidden=true;arena.classList.remove('playing');
+}
+function updateStats(){
+  const s=session,track=modes[mode].kind==='track';
+  $('score').textContent=s?s.score.toLocaleString():'0';
+  $('accuracy').innerHTML=(s&&(track?s.elapsed:s.shots)?s.accuracy.toFixed(1):'—')+'<i>%</i>';
+  $('reaction').innerHTML=track?(s?s.trackOn.toFixed(1):'—')+'<i>s</i>':(s&&s.reaction!==null?Math.round(s.reaction):'—')+'<i>ms</i>';
+  $('timer').textContent=time(s?s.duration-s.elapsed:Number($('duration').value));
+  $('timeProgress').style.width=(s?100*(1-s.elapsed/s.duration):100)+'%';
+  $('kills').textContent=s?s.kills:'0';$('headshots').textContent=s?s.headshots:'0';
+  $('position').textContent='X '+camera.x.toFixed(1)+' · Z '+camera.z.toFixed(1)+($('movement').checked?' / WASD':' / 固定站位');
+}
+function beep(freq=700){
+  if(!sound)return;
+  try {
+    audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();
+    const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.type='sine';
+    o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.6,audio.currentTime+.055);
+    g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.07);o.start();o.stop(audio.currentTime+.08);
+  }catch{}
+}
+$('sound').onclick=()=>{sound=!sound;$('sound').textContent='音效 '+(sound?'开':'关');$('sound').setAttribute('aria-pressed',String(sound));};
+async function acquireMouse(){
+  mouseFallback=false;
+  if(!$('lockMouse').checked)return;
+  try{await canvas.requestPointerLock();if(document.pointerLockElement!==canvas)throw Error();}
+  catch{$('lockMouse').checked=false;mouseFallback=true;persistSettings();}
+}
+async function start(restart=false){
+  if(starting||state==='countdown')return;starting=true;
+  try {
+    const resume=state==='paused'&&!restart;await acquireMouse();beep(400);
+    if(!resume){session=new Session(mode,$('difficulty').value,Number($('duration').value),$('targetModel').value);camera=freshCamera();particles=[];cursor={x:renderer.width/2,y:renderer.height/2};}
+    held=false;rightHeld=false;keys.clear();state='countdown';count=3;setControls(true);
+    $('overlay').hidden=true;$('pausedControls').hidden=true;$('countdown').hidden=false;$('countdown').textContent='3';
+    $('arenaStatus').textContent='训练即将开始';arena.classList.add('playing');canvas.focus();updateStats();
+  }finally{starting=false;}
+}
 $('start').onclick=()=>start();
-function pause(){if(state!=='running'&&state!=='countdown')return;state='paused';held=false;document.exitPointerLock?.();showOverlay('稍作调整，保持专注','进度已保留。点击继续训练，重新进入状态。','继续训练');$('pausedControls').hidden=false;$('overlayHint').textContent='已暂停 · 本轮进度已保留';$('arenaStatus').textContent='已暂停'}
-function finish(){state='result';held=false;document.exitPointerLock?.();setControls(false);$('pausedControls').hidden=true;const r=session.result();history.unshift(r);history=history.slice(0,20);try{localStorage.setItem('aimforge-history',JSON.stringify(history))}catch{storageAvailable=false}renderHistory();showOverlay('训练完成。继续进阶。',`${session.score.toLocaleString()} 分 · ${mode==='track'?'追踪':'命中'}率 ${session.accuracy.toFixed(1)}%`,'再练一轮');$('overlayHint').textContent=storageAvailable?'成绩已保存到当前浏览器。':'浏览器存储不可用，本轮成绩仅在本次页面中保留。';$('arenaStatus').textContent='训练完成';beep(900);updateStats()}
-$('quit').onclick=()=>{state='idle';session=null;held=false;setControls(false);$('pausedControls').hidden=true;selectMode(mode);$('arenaStatus').textContent='准备就绪'};
-document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==canvas&&(state==='running'||state==='countdown'))pause()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});window.addEventListener('blur',()=>pause());
-document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON'].includes(document.activeElement?.tagName)&&state!=='running'&&state!=='paused')return;if(e.code==='Space'){e.preventDefault();if(state==='running'||state==='countdown')pause();else if(state==='paused')start()}if(e.code==='Escape')pause();if(e.code==='KeyR'&&!e.repeat&&state!=='countdown'){e.preventDefault();start(true)}});
-function pointEvent(e){if(document.pointerLockElement===canvas){camera.yaw=clamp(camera.yaw+e.movementX*.0022*Number($('sensitivity').value),-.95,.95);camera.pitch=clamp(camera.pitch-e.movementY*.0022*Number($('sensitivity').value),-.6,.6);cursor={x:width/2,y:height/2}}else{const r=canvas.getBoundingClientRect();cursor={x:clamp(e.clientX-r.left,0,width),y:clamp(e.clientY-r.top,0,height)}}}
-canvas.addEventListener('pointermove',pointEvent);
-function ray(){const locked=document.pointerLockElement===canvas;return rayFromScreen(locked?width/2:cursor.x,locked?height/2:cursor.y,width,height,Number($('fov').value),camera)}
-canvas.addEventListener('pointerdown',e=>{if(e.button!==0||state!=='running')return;e.preventDefault();if(document.pointerLockElement!==canvas)pointEvent(e);held=true;if(mode!=='track'){const target=session.shoot(ray());if(target){flash=.12;particles.push({x:target.x,y:target.y,z:target.z,life:.4});beep()}else beep(180);updateStats()}else try{canvas.setPointerCapture(e.pointerId)}catch{}});
-window.addEventListener('pointerup',()=>held=false);canvas.addEventListener('pointercancel',()=>held=false);canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('pointerleave',()=>{if(document.pointerLockElement!==canvas)held=false});
-$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.training').requestFullscreen()}catch{$('fullscreen').textContent='当前浏览器不支持全屏'}};
-function resize(){const r=canvas.getBoundingClientRect();width=r.width;height=r.height;const dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);cursor={x:width/2,y:height/2}}
-new ResizeObserver(resize).observe(arena);
-function line(a,b,color){const p=project(a,camera,width,height,Number($('fov').value)),q=project(b,camera,width,height,Number($('fov').value));if(!p||!q)return;ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke()}
-function draw(dt){ctx.fillStyle='#242c2c';ctx.fillRect(0,0,width,height);const gradient=ctx.createLinearGradient(0,0,0,height);gradient.addColorStop(0,'#15202166');gradient.addColorStop(.65,'#29342e22');gradient.addColorStop(1,'#0d151a77');ctx.fillStyle=gradient;ctx.fillRect(0,0,width,height);ctx.lineWidth=1;
-for(let x=-40;x<=40;x+=2)line({x,y:-12,z:-20},{x,y:20,z:-20},'#3b484344');for(let y=-12;y<=20;y+=2)line({x:-40,y,z:-20},{x:40,y,z:-20},'#3b484344');for(let x=-40;x<=40;x+=3)line({x,y:-7,z:-20},{x,y:-7,z:-1},'#52635428');for(let z=-20;z<=-1;z+=2)line({x:-40,y:-7,z},{x:40,y:-7,z},'#52635428');line({x:-40,y:-7,z:-20},{x:40,y:-7,z:-20},'#75836c55');
-const demo=[{x:-6.2,y:2,z:-20,r:.64},{x:5.5,y:1,z:-20,r:.64},{x:2,y:-3,z:-20,r:.64}];const targets=session?.targets||demo;
-for(const target of targets){const p=project(target,camera,width,height,Number($('fov').value));if(!p)continue;const active=state==='running'&&mode==='track'&&held&&hitCurrent();ctx.save();ctx.shadowBlur=active?26:14;ctx.shadowColor='#c2f97033';const g=ctx.createRadialGradient(p.x-p.r*.35,p.y-p.r*.4,p.r*.08,p.x,p.y,p.r);g.addColorStop(0,active?'#efffc6':'#d6ff94');g.addColorStop(.55,active?'#d7ff86':'#b2eb5c');g.addColorStop(1,'#739e36');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();ctx.strokeStyle='#e4ffb455';ctx.beginPath();ctx.arc(p.x,p.y,p.r+3,0,Math.PI*2);ctx.stroke();}
-particles=particles.filter(p=>p.life>0);for(const p of particles){p.life-=dt;const pos=project({...p,r:.7},camera,width,height,Number($('fov').value));if(!pos)continue;ctx.globalAlpha=Math.max(0,p.life/.4);ctx.strokeStyle='#d0ff9b';ctx.beginPath();ctx.arc(pos.x,pos.y,pos.r*(2-p.life/.4),0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
-if(state==='running'){const x=document.pointerLockElement===canvas?width/2:cursor.x,y=document.pointerLockElement===canvas?height/2:cursor.y;ctx.strokeStyle=flash>0?'#c3f86a':'#f0f7ef';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(x-9,y);ctx.lineTo(x-4,y);ctx.moveTo(x+4,y);ctx.lineTo(x+9,y);ctx.moveTo(x,y-9);ctx.lineTo(x,y-4);ctx.moveTo(x,y+4);ctx.lineTo(x,y+9);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(x-1,y-1,2,2)}flash=Math.max(0,flash-dt)}
-function hitCurrent(){const p=project(session.targets[0],camera,width,height,Number($('fov').value));return p&&Math.hypot(p.x-cursor.x,p.y-cursor.y)<p.r}
-function frame(now){const dt=Math.max(0,(now-(last||now))/1000);last=now;if(state==='countdown'){count-=dt;if(count<=0){state='running';$('countdown').hidden=true;$('arenaStatus').textContent=mouseFallback?'普通光标训练 · 浏览器未允许鼠标锁定':'训练中 · 保持专注';beep(1000)}else $('countdown').textContent=Math.ceil(count)}else if(state==='running'){if(session.tick(dt,ray(),held))finish();updateStats()}draw(Math.min(dt,.1));requestAnimationFrame(frame)}
-syncLabels();renderHistory();selectMode('flick');resize();requestAnimationFrame(frame);
+function pause(){
+  if(state!=='running'&&state!=='countdown')return;
+  state='paused';held=false;rightHeld=false;keys.clear();document.exitPointerLock?.();
+  showOverlay('稍作调整，保持专注','走位和训练进度已保留。点击继续重新进入状态。','继续训练');
+  $('pausedControls').hidden=false;$('overlayHint').textContent='已暂停 · 本轮进度已保留';$('arenaStatus').textContent='已暂停';
+}
+function finish(){
+  state='result';held=false;rightHeld=false;keys.clear();document.exitPointerLock?.();setControls(false);$('pausedControls').hidden=true;
+  history.unshift(session.result());history=history.slice(0,20);
+  try{localStorage.setItem('aimforge-history',JSON.stringify(history));}catch{storageAvailable=false;}
+  renderHistory();
+  showOverlay('训练完成。继续进阶。',session.score.toLocaleString()+' 分 · '+session.kills+' 次击倒 · '+session.headshots+' 次爆头命中 · '+(modes[mode].kind==='track'?'追踪率 ':'命中率 ')+session.accuracy.toFixed(1)+'%','再练一轮');
+  $('overlayHint').textContent=storageAvailable?'成绩已保存到当前浏览器。':'浏览器存储不可用，成绩仅在本次页面中保留。';
+  $('arenaStatus').textContent='训练完成';beep(900);updateStats();
+}
+$('quit').onclick=()=>{setControls(false);selectMode(mode);};
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==canvas&&(state==='running'||state==='countdown'))pause();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('blur',pause);
+document.addEventListener('keydown',e=>{
+  if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+  if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)){
+    if(state==='running'){e.preventDefault();keys.add(e.code);}return;
+  }
+  if(e.code==='Space'){
+    if(state==='running'||state==='countdown'){e.preventDefault();pause();}
+    else if(state==='paused'){e.preventDefault();start();}
+  }
+  if(e.code==='Escape')pause();
+  if(e.code==='KeyR'&&!e.repeat&&['running','paused','result'].includes(state)){e.preventDefault();start(true);}
+});
+document.addEventListener('keyup',e=>keys.delete(e.code));
+for(const button of document.querySelectorAll('[data-key]')){
+  button.addEventListener('pointerdown',e=>{if(state!=='running'||!$('movement').checked)return;e.preventDefault();keys.add(button.dataset.key);button.setPointerCapture(e.pointerId);});
+  const release=()=>keys.delete(button.dataset.key);
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,release);
+}
+function pointEvent(e){
+  if(document.pointerLockElement===canvas||rightHeld){
+    camera.yaw+=e.movementX*.0022*Number($('sensitivity').value);
+    camera.pitch=clamp(camera.pitch-e.movementY*.0022*Number($('sensitivity').value),-1.15,1.15);
+  }
+  if(document.pointerLockElement===canvas)cursor={x:renderer.width/2,y:renderer.height/2};
+  else {const r=canvas.getBoundingClientRect();cursor={x:clamp(e.clientX-r.left,0,renderer.width),y:clamp(e.clientY-r.top,0,renderer.height)};}
+}
+canvas.addEventListener('pointermove',e=>{if(state==='running')pointEvent(e);});
+function ray(){const locked=document.pointerLockElement===canvas;return rayFromScreen(locked?renderer.width/2:cursor.x,locked?renderer.height/2:cursor.y,renderer.width,renderer.height,Number($('fov').value),camera);}
+canvas.addEventListener('pointerdown',e=>{
+  if(state!=='running')return;
+  if(e.button===2){rightHeld=true;canvas.setPointerCapture(e.pointerId);return;}
+  if(e.button!==0)return;e.preventDefault();if(document.pointerLockElement!==canvas)pointEvent(e);held=true;canvas.focus();
+  if(modes[mode].kind==='click'){session.shoot(ray(),camera);collectEvents();updateStats();}
+  try{canvas.setPointerCapture(e.pointerId);}catch{}
+});
+window.addEventListener('pointerup',e=>{if(e.button===0)held=false;if(e.button===2)rightHeld=false;});
+canvas.addEventListener('pointercancel',()=>{held=false;rightHeld=false;});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+$('fullscreen').onclick=async()=>{
+  try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.training').requestFullscreen();}
+  catch{$('fullscreen').textContent='当前浏览器不支持全屏';}
+};
+function collectEvents(){
+  for(const event of session.events.splice(0)){
+    shot=.055;
+    if(event.miss)continue;
+    flash=.12;beep(event.head?1100:event.killed?850:550);
+    particles.push({...event.point,life:.6,head:event.head,text:event.killed?(event.head?'HEADSHOT +150':'+100'):'−'+event.damage});
+  }
+}
+new ResizeObserver(()=>{renderer.resize();cursor={x:renderer.width/2,y:renderer.height/2};}).observe(arena);
+function frame(now){
+  const dt=Math.min(.1,Math.max(0,(now-(last||now))/1000));last=now;
+  if(state==='countdown'){
+    count-=dt;if(count<=0){state='running';$('countdown').hidden=true;$('arenaStatus').textContent=mouseFallback?'普通光标模式 · 右键拖动转向 · WASD 移动':'训练中 · 左键射击 · WASD 移动';beep(1000);}
+    else $('countdown').textContent=Math.ceil(count);
+  }else if(state==='running'){
+    if($('movement').checked)movePlayer(camera,keys,dt,camera.yaw);
+    const done=session.tick(dt,ray(),held,camera);collectEvents();updateStats();if(done)finish();
+  }else if(state==='idle'&&preview){if(preview.tick(dt,{x:0,y:0,z:-1},false))makePreview();}
+  particles=particles.filter(p=>(p.life-=dt)>0);flash=Math.max(0,flash-dt);shot=Math.max(0,shot-dt);
+  const active=session||preview;
+  if(active){
+    const locked=document.pointerLockElement===canvas,aim=locked?{x:renderer.width/2,y:renderer.height/2}:cursor;
+    const hovered=state==='running'&&held?traceTargets(ray(),active.targets,camera,active.elapsed)?.target:null;
+    renderer.draw({camera,fov:Number($('fov').value),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered});
+  }
+  requestAnimationFrame(frame);
+}
+renderHistory();selectMode('strafe');renderer.resize();requestAnimationFrame(frame);
