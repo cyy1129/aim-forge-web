@@ -61,10 +61,12 @@ export class Renderer {
   }
   sphere(target,active){
     const p=this.project(target);if(!p||p.r<.1)return;
-    const c=this.ctx;c.save();c.shadowBlur=active?22:12;c.shadowColor='#c3f86a44';
+    const c=this.ctx;c.save();c.shadowBlur=active?22:12;c.shadowColor=active?'#50dcff99':'#c3f86a44';
     const g=c.createRadialGradient(p.x-p.r*.3,p.y-p.r*.4,p.r*.08,p.x,p.y,p.r);
-    g.addColorStop(0,target.hitFlash>0?'#f4ffe0':'#d6ff94');g.addColorStop(.55,'#b2eb5c');g.addColorStop(1,'#739e36');
-    c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,p.r,0,Math.PI*2);c.fill();c.restore();
+    g.addColorStop(0,target.hitFlash>0?'#f4ffe0':active?'#d0fbff':'#d6ff94');g.addColorStop(.55,active?'#4cd7f5':'#b2eb5c');g.addColorStop(1,active?'#167baf':'#739e36');
+    c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,p.r,0,Math.PI*2);c.fill();
+    if(active){c.strokeStyle='#99f1ff';c.lineWidth=1.5;c.stroke();}
+    c.restore();
   }
   targets(targets,time,hovered){
     const c=this.ctx,commands=[];

@@ -202,7 +202,11 @@ function frame(now){
   const active=session||preview;
   if(active){
     const locked=document.pointerLockElement===canvas,aim=locked?{x:renderer.width/2,y:renderer.height/2}:cursor;
-    const hovered=state==='running'&&held?traceTargets(ray(),active.targets,camera,active.elapsed)?.target:null;
+    const tracking=modes[mode].kind==='track';
+    const hovered=state==='running'&&(held||tracking)?traceTargets(ray(),active.targets,camera,active.elapsed)?.target:null;
+    if(state==='running'&&tracking){
+      $('arenaStatus').textContent=hovered?(held?'有效追踪中':'已瞄准 · 按住左键开始计分'):($('targetModel').value==='sphere'?'跟随目标 · 瞄准球体后变蓝':'跟随目标 · 按住左键累计分数');
+    }
     renderer.draw({camera,fov:Number($('fov').value),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered});
   }
   requestAnimationFrame(frame);
