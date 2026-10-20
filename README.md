@@ -1,6 +1,6 @@
 # AIM FORGE · 瞄准训练场
 
-无构建步骤的浏览器 FPS 瞄准训练器，支持八种玩法、可活动的人形机器人和玩家走位。使用 Canvas 绘制透视场景，人物由带深度和光照的几何部件构成，渲染和射线判定共用头、躯干、四肢模型。
+无需框架或后端的浏览器 FPS 瞄准训练器，支持八种玩法、可活动的人形机器人和玩家走位。使用 Canvas 绘制透视场景，人物由带深度和光照的几何部件构成，渲染和射线判定共用头、躯干、四肢模型。
 
 ## 公网试玩与部署
 
@@ -8,12 +8,15 @@ GitHub Pages 地址：https://cyy1129.github.io/aim-forge-web/
 
 访客无需登录。页面不加载外部字体、脚本或接口，所有运行资源都随站点部署。仓库的 dist 目录可直接交给任何静态托管服务。
 
+修改源文件后，先运行 `node scripts/prepare-assets.mjs`。脚本为样式、入口和依赖模块生成内容版本文件，并更新首页引用，避免发布时旧缓存造成按钮样式与页面结构错配。生成的文件一并提交并部署，保留可读源文件供编辑和测试。
+
 GitHub Pages 发布源为 gh-pages 分支根目录，保留 .nojekyll 文件。更新 dist 后，可使用 git subtree split 导出 dist 目录，再将结果推送到发布分支。GitHub Pages 会重新发布。
 
 ## 本地运行
 
 在项目目录运行：
 
+    node scripts/prepare-assets.mjs
     python3 -m http.server 8765 --directory dist
 
 然后打开 http://localhost:8765。ES 模块需通过 HTTP 服务加载。
