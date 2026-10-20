@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111517"><meta name="description" content="AIM FORGE 浏览器瞄准训练场。人形移动靶、WASD走位、点射、跟枪和目标切换，找到自己的节奏。"><title>AIM FORGE · 瞄准训练场</title><link rel="stylesheet" href="style.5ab6dba55b0e.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111517"><meta name="description" content="AIM FORGE 浏览器瞄准训练场。人形移动靶、WASD走位、点射、跟枪和目标切换，找到自己的节奏。"><title>AIM FORGE · 瞄准训练场</title><link rel="stylesheet" href="style.e0d1b9f9119d.css"></head>
 <body>
 <header><a class="brand" href="./" aria-label="AIM FORGE 首页"><span class="brandmark">⌖</span> AIM<span>FORGE</span><i>瞄准训练场</i></a><div class="header-right"><span class="local-status"><b></b> 本地训练 · 无需注册</span><button class="icon-btn" id="sound" aria-label="切换命中音效" aria-pressed="true">音效 开</button></div></header>
 <main>
@@ -9,26 +9,37 @@
 <aside class="settings">
 <div class="section-heading"><h2>训练项目</h2><span id="modeCount">14 MODES</span></div>
 <div class="mode-list" id="modeList" role="group" aria-label="选择训练项目，滚动查看更多"></div>
-<div class="mode-lock-hint" id="modeLockHint" role="status" aria-live="polite" hidden><strong>本轮训练尚未结束</strong><p id="modeLockMessage">结束本轮后可切换模式和调整参数。</p></div>
+<div class="mode-lock-hint" id="modeLockHint" role="status" aria-live="polite" hidden><strong id="modeLockTitle">本轮训练尚未结束</strong><p id="modeLockMessage">结束本轮后可切换模式和调整参数。</p></div>
 <div class="section-heading parameters"><h2>训练参数</h2><button class="text-btn" id="resetSettings">重置</button></div>
 <label class="field">训练时长 <select id="duration"><option value="30">30 秒 · 热身</option><option value="60" selected>60 秒 · 标准</option><option value="120">120 秒 · 耐力</option></select></label>
 <label class="field">难度 <select id="difficulty"><option value="easy">入门</option><option value="normal" selected>标准</option><option value="hard">挑战</option></select></label>
 <label class="field model-field">靶标模型 <select id="targetModel"><option value="sphere" selected>经典球体</option><option value="human">人形假人 · 关节模型</option></select><small class="field-note" id="modelRequirement" hidden>爆头限定模式仅使用人形靶。</small></label>
 <label class="toggle-line movement-option"><span>玩家自由移动<small id="movementHint">WASD 走位 · Shift 加速</small></span><input type="checkbox" id="movement" checked></label>
-<label class="range-label" for="sensitivity">鼠标灵敏度 <output id="sensitivityValue">1.00</output></label><input type="range" id="sensitivity" min="0.2" max="3" step="0.05" value="1"><div class="range-hint"><span>精准控制</span><span>快速转向</span></div>
-<label class="range-label" for="fov">水平视野 FOV <output id="fovValue">103°</output></label><input type="range" id="fov" min="70" max="120" step="1" value="103">
-<label class="toggle-line"><span>FPS 鼠标锁定<small>启用灵敏度，体验自由转向</small></span><input type="checkbox" id="lockMouse" checked></label>
-<p class="settings-note">灵敏度为本站倍率。关闭鼠标锁定可使用普通光标或触屏；灵敏度仅对锁定模式生效。</p>
+<div class="input-settings">
+<label class="field">输入配置 <select id="inputProfile"><option value="custom">通用训练</option><option value="delta">三角洲行动 · PC 键鼠</option></select></label>
+<div id="customInput"><label class="number-label" for="sensitivity">本站灵敏度倍率 <input type="number" id="sensitivity" min="0.001" max="20" step="0.001" value="1"></label></div>
+<div id="deltaInput" hidden>
+<label class="number-label" for="gameSensitivity">游戏内鼠标灵敏度<input id="gameSensitivity" type="number" min="0.001" max="1000" step="0.001" value="1"></label>
+<label class="number-label" for="matchTweak">手感微调<span class="unit-input"><input id="matchTweak" type="number" min="0.05" max="10" step="0.001" value="1"><span>×</span></span></label>
+<div class="tune-actions"><button type="button" id="tuneSlower">慢一点 −5%</button><button type="button" id="tuneReset">恢复 1×</button><button type="button" id="tuneFaster">快一点 +5%</button></div>
+<p class="input-note">参考匹配：保持与游戏相同的鼠标 DPI，偏快调低、偏慢调高。暂不包含开镜与屏幕距离系数适配。</p>
+</div>
+<label class="number-label" for="fov"><span id="fovLabel">水平视野 FOV</span><span class="unit-input"><input type="number" id="fov" min="60" max="120" step="1" value="103"><span>°</span></span></label>
+<p class="input-note" id="fovHint">按训练画面的实际水平视野设置。</p>
+<details class="input-advanced"><summary>画面比例与横纵倍率</summary><label class="field">训练画面比例 <select id="viewAspect"><option value="auto">自动 · 铺满训练区</option><option value="16:9">16:9</option><option value="16:10">16:10</option><option value="4:3">4:3</option><option value="21:9">21:9</option></select></label><div class="input-grid"><label>水平倍率<input id="axisX" type="number" min="0.1" max="5" step="0.001" value="1"></label><label>垂直倍率<input id="axisY" type="number" min="0.1" max="5" step="0.001" value="1"></label></div><p class="input-note">与游戏里的横纵倍率保持一致；两轴独立生效。</p></details>
+<label class="toggle-line"><span>FPS 鼠标锁定<small>优先使用原始鼠标输入</small></span><input type="checkbox" id="lockMouse" checked></label>
+<p class="settings-note" id="inputStatus" role="status">开始训练后检测鼠标输入。普通光标模式下可右键拖动转向。</p>
+</div>
 </aside>
 <section class="training">
 <div class="arena-top"><div class="mode-heading"><span class="live-dot"></span><strong id="modeTitle">精准点射</strong><span class="tag" id="modeTag">FLICKING</span></div><div class="training-actions"><button id="endRound" class="end-round-btn" type="button" hidden>结束本轮</button><button class="fullscreen-btn" id="fullscreen" type="button" aria-label="进入全屏训练" aria-pressed="false" title="全屏训练（F）"><svg class="fullscreen-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path id="fullscreenIcon" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg><span id="fullscreenLabel">全屏训练</span></button></div></div>
 <p class="scenario-guide" id="scenarioGuide"></p>
 <div class="stats"><div><span>得分 <small>SCORE</small></span><strong id="score">0</strong></div><div><span id="accuracyLabel">命中率 <small>ACCURACY</small></span><strong id="accuracy">—<i>%</i></strong></div><div><span id="reactionLabel">平均反应 <small>REACTION</small></span><strong id="reaction">—<i>ms</i></strong></div><div><span>剩余时间 <small>TIME LEFT</small></span><strong id="timer">01:00</strong></div></div>
-<div class="arena" id="arena"><canvas id="canvas" aria-label="瞄准训练区域：左键射击，WASD移动，空格暂停，R重新开始" tabindex="0"></canvas><div class="arena-label">STRAFE FACILITY <span>/ 02</span></div><div class="combat-hud"><span>击倒 <b id="kills">0</b></span><span>爆头命中 <b id="headshots">0</b></span><span>失误 <b id="mistakes">0</b></span></div><div class="arena-axis" id="position">X 0.0 · Z 0.0</div><div class="overlay" id="overlay"><div class="overlay-content"><div class="ready-icon">⌖</div><span class="eyebrow">FOCUS. CLICK. REPEAT.</span><h2 id="overlayTitle">进入专注状态</h2><p id="overlayDescription">将准星对准绿色球体，点击左键命中目标。</p><div class="overlay-actions"><button class="primary" id="start">开始训练 <span>↗</span></button><div class="round-exit" id="pausedControls" hidden><button id="quit" class="end-round-btn" type="button">结束本轮</button></div></div><p class="round-exit-note" id="roundExitNote" hidden>提前结束不会保存本轮成绩。</p><small id="overlayHint">60 秒，让肌肉记住每一次精准。</small></div></div><div class="countdown" id="countdown" hidden></div><div class="arena-bottom"><span><b></b> <span id="arenaStatus">准备就绪</span></span><span>瞄准，从这里开始。</span></div><div class="shot-feedback" id="shotFeedback" role="status" aria-live="polite" hidden></div><div class="time-progress" id="timeProgress"></div></div>
+<div class="arena" id="arena"><canvas id="canvas" aria-label="瞄准训练区域：左键射击，WASD移动，空格暂停，R重新开始" tabindex="0"></canvas><div class="arena-label">STRAFE FACILITY <span>/ 02</span></div><div class="input-badge" id="inputBadge"></div><div class="combat-hud"><span>击倒 <b id="kills">0</b></span><span>爆头命中 <b id="headshots">0</b></span><span>失误 <b id="mistakes">0</b></span></div><div class="arena-axis" id="position">X 0.0 · Z 0.0</div><div class="overlay" id="overlay"><div class="overlay-content"><div class="ready-icon">⌖</div><span class="eyebrow">FOCUS. CLICK. REPEAT.</span><h2 id="overlayTitle">进入专注状态</h2><p id="overlayDescription">将准星对准绿色球体，点击左键命中目标。</p><div class="overlay-actions"><button class="primary" id="start">开始训练 <span>↗</span></button><div class="round-exit" id="pausedControls" hidden><button id="quit" class="end-round-btn" type="button">结束本轮</button></div></div><p class="round-exit-note" id="roundExitNote" hidden>提前结束不会保存本轮成绩。</p><small id="overlayHint">60 秒，让肌肉记住每一次精准。</small></div></div><div class="countdown" id="countdown" hidden></div><div class="arena-bottom"><span><b></b> <span id="arenaStatus">准备就绪</span></span><span>瞄准，从这里开始。</span></div><div class="shot-feedback" id="shotFeedback" role="status" aria-live="polite" hidden></div><div class="time-progress" id="timeProgress"></div></div>
 <div class="controls-help"><span><kbd>W A S D</kbd> 移动</span><span><kbd>右键拖动</kbd> 转向</span><span><kbd>鼠标左键</kbd> <span id="shootHelp">射击</span></span><span><kbd>SPACE</kbd> 暂停</span><span><kbd>R</kbd> 重新开始</span><span><kbd>ESC</kbd> 释放鼠标并暂停</span></div>
 <div class="touch-movement" aria-label="移动方向控制"><span>移动控制</span><button data-key="KeyA" aria-label="向左移动">A ←</button><button data-key="KeyW" aria-label="向前移动">W ↑</button><button data-key="KeyS" aria-label="向后移动">S ↓</button><button data-key="KeyD" aria-label="向右移动">D →</button><small>按住方向键移动，可配合鼠标射击</small></div>
 <section class="history"><div class="section-heading"><h2>最近训练 <span class="history-caption">一点一滴，都在进步。</span></h2><button id="clearHistory" class="text-btn">清空记录</button></div><div class="history-table"><table><thead><tr><th>训练项目</th><th>时间</th><th>配置</th><th>得分</th><th>命中 / 追踪率</th><th>击倒 / 爆头命中</th></tr></thead><tbody id="historyBody"></tbody></table><div id="emptyHistory">你的第一轮训练，从现在开始。<span>完成训练后，成绩会自动保存在此浏览器。</span></div></div></section>
 </section></div>
 <footer><span><b>AIM FORGE</b> · BUILT FOR BETTER AIM</span><span>建议使用桌面浏览器与鼠标体验 <i>↗</i></span></footer>
-</main><script type="module" src="app.ea83b13810ae.mjs"></script>
+</main><script type="module" src="app.2dd46b43fecb.mjs"></script>
 </body></html>

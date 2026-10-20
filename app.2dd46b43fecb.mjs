@@ -1,12 +1,15 @@
 import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets,obstacleDistance} from './core.e707d9c74151.mjs';
 import {Renderer} from './render.cdb1670900d3.mjs';
+import {inputDefaults,inputConfig,horizontalFov,fitViewport,radiansPerUnit} from './input-profile.f006776f53fa.mjs';
 
 const $=id=>document.getElementById(id),canvas=$('canvas'),arena=$('arena'),renderer=new Renderer(canvas);
 const freshCamera=()=>({yaw:0,pitch:0,x:0,y:0,z:3});
 let state='idle',mode='strafe',session=null,preview=null,pendingMode=null,camera=freshCamera(),cursor={x:0,y:0};
 let held=false,rightHeld=false,count=0,last=0,flash=0,shot=0,particles=[],audio=null,sound=true,storageAvailable=true,mouseFallback=false,starting=false;
 let feedbackLife=0;
-const keys=new Set(),settings=['duration','difficulty','targetModel','movement','sensitivity','fov','lockMouse'];
+let inputSource='unknown';
+const inputIds=Object.keys(inputDefaults);
+const keys=new Set(),settings=['duration','difficulty','targetModel','movement','lockMouse',...inputIds];
 const booleanSettings=new Set(['lockMouse','movement']);
 let history=[];
 try {
@@ -23,15 +26,23 @@ try {
     else {const before=$(id).value;$(id).value=prefs[id];if(!$(id).value)$(id).value=before;}
   }
 }catch{}
+function config(){return inputConfig(Object.fromEntries(inputIds.map(id=>[id,$(id).value])));}
+function normalizeInputs(){for(const [id,value]of Object.entries(config()))$(id).value=String(value);}
+normalizeInputs();
 let preferredModel=$('targetModel').value,preferredMovement=$('movement').checked;
 function persistSettings(){
   const prefs={modelPreferenceVersion:1};for(const id of settings)prefs[id]=booleanSettings.has(id)?$(id).checked:$(id).value;
   prefs.targetModel=preferredModel;prefs.movement=preferredMovement;
+  Object.assign(prefs,config());
   try{localStorage.setItem('aimforge-settings',JSON.stringify(prefs));}catch{}
 }
 function syncLabels(){
-  $('sensitivityValue').textContent=Number($('sensitivity').value).toFixed(2);
-  $('fovValue').textContent=$('fov').value+'°';
+  const c=config(),delta=c.inputProfile==='delta';
+  $('customInput').hidden=delta;$('deltaInput').hidden=!delta;
+  $('fovLabel').textContent=delta?'游戏 FOV · 16:9 基准':'水平视野 FOV';
+  $('fovHint').textContent=delta?'填写游戏内 FOV，按训练画面比例自动换算。':'按训练画面的实际水平视野设置。';
+  $('inputStatus').textContent=!$('lockMouse').checked?'普通光标模式 · 灵敏度只用于右键拖动转向':inputSource==='raw'?'原始鼠标输入已开启':inputSource==='adjusted'?'普通锁定输入 · 原始输入不可用，手感可能受系统设置影响':'开始训练后检测鼠标输入；请保持与游戏相同的鼠标 DPI。';
+  $('inputBadge').textContent=(delta?'三角洲 · 参考匹配':'通用训练')+(!$('lockMouse').checked?' · 普通光标':inputSource==='raw'?' · 原始输入':' · FPS 鼠标锁定');
   if(state==='idle'){
     $('timer').textContent=time(Number($('duration').value));
     $('overlayHint').textContent=$('duration').value+' 秒 · '+($('targetModel').value==='human'?'头部命中加成 · ':'')+($('movement').checked?'WASD 移动已开启':'固定站位训练');
@@ -40,14 +51,22 @@ function syncLabels(){
 for(const id of settings)$(id).addEventListener('input',()=>{
   if(id==='targetModel')preferredModel=$('targetModel').value;
   if(id==='movement')preferredMovement=$('movement').checked;
+  if(id==='inputProfile'&&config().inputProfile==='delta'){$('lockMouse').checked=true;$('viewAspect').value='16:9';}
   persistSettings();syncLabels();
+  if(id==='viewAspect'||id==='inputProfile')resizeViewport();
   if(id==='targetModel'||id==='difficulty')makePreview();
 });
+for(const id of inputIds)$(id).addEventListener('change',()=>{normalizeInputs();persistSettings();syncLabels();});
+for(const [id,factor]of [['tuneSlower',.95],['tuneFaster',1.05],['tuneReset',null]])$(id).onclick=()=>{
+  if(!['idle','result'].includes(state))return;
+  $('matchTweak').value=String(factor===null?1:Number((config().matchTweak*factor).toFixed(3)));
+  normalizeInputs();persistSettings();syncLabels();
+};
 $('resetSettings').onclick=()=>{
   if(!['idle','result'].includes(state))return;
-  for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'sphere',sensitivity:1,fov:103}))$(id).value=val;
+  for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'sphere',...inputDefaults}))$(id).value=val;
   preferredModel='sphere';preferredMovement=true;
-  $('lockMouse').checked=true;$('movement').checked=true;persistSettings();selectMode(mode);
+  $('lockMouse').checked=true;$('movement').checked=true;persistSettings();selectMode(mode);resizeViewport();
 };
 function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function setControls(disabled){
@@ -60,10 +79,12 @@ function setControls(disabled){
     b.classList.toggle('is-locked',disabled);
   });
   $('modeLockHint').hidden=!disabled;
+  $('modeLockTitle').textContent='本轮训练尚未结束';
   $('modeLockMessage').textContent='结束本轮后可切换模式和调整参数。';
   $('endRound').hidden=!disabled;
   $('endRound').textContent='结束本轮';
   $('resetSettings').disabled=disabled;
+  for(const id of ['tuneSlower','tuneFaster','tuneReset'])$(id).disabled=disabled;
 }
 function roundInProgress(){return ['countdown','running','paused'].includes(state);}
 function requestMode(next){
@@ -147,9 +168,29 @@ function beep(freq=700){
 $('sound').onclick=()=>{sound=!sound;$('sound').textContent='音效 '+(sound?'开':'关');$('sound').setAttribute('aria-pressed',String(sound));};
 async function acquireMouse(){
   mouseFallback=false;
-  if(!$('lockMouse').checked)return;
-  try{await canvas.requestPointerLock();if(document.pointerLockElement!==canvas)throw Error();}
-  catch{$('lockMouse').checked=false;mouseFallback=true;persistSettings();}
+  if(!$('lockMouse').checked)return false;
+  try{
+    try{
+      const pending=canvas.requestPointerLock({unadjustedMovement:true});
+      if(pending&&typeof pending.then==='function'){await pending;inputSource='raw';}
+      else{await waitForMouseLock();inputSource='adjusted';}
+    }catch{await canvas.requestPointerLock();await waitForMouseLock();inputSource='adjusted';}
+    if(document.pointerLockElement!==canvas)throw Error();
+    syncLabels();return true;
+  }catch{
+    $('lockMouse').checked=false;mouseFallback=true;persistSettings();
+    inputSource='unknown';syncLabels();return false;
+  }
+}
+function waitForMouseLock(){
+  if(document.pointerLockElement===canvas)return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const cleanup=()=>{clearTimeout(timeout);document.removeEventListener('pointerlockchange',change);document.removeEventListener('pointerlockerror',fail);};
+    const change=()=>{if(document.pointerLockElement===canvas){cleanup();resolve();}};
+    const fail=()=>{cleanup();reject(Error('Mouse lock unavailable'));};
+    const timeout=setTimeout(fail,2500);
+    document.addEventListener('pointerlockchange',change);document.addEventListener('pointerlockerror',fail);
+  });
 }
 async function start(restart=false){
   if(starting||state==='countdown')return;starting=true;
@@ -215,14 +256,16 @@ for(const button of document.querySelectorAll('[data-key]')){
 }
 function pointEvent(e){
   if(document.pointerLockElement===canvas||rightHeld){
-    camera.yaw+=e.movementX*.0022*Number($('sensitivity').value);
-    camera.pitch=clamp(camera.pitch-e.movementY*.0022*Number($('sensitivity').value),-1.15,1.15);
+    const c=config(),scale=radiansPerUnit(c);
+    camera.yaw+=e.movementX*scale*c.axisX;
+    camera.pitch=clamp(camera.pitch-e.movementY*scale*c.axisY,-Math.PI/2+.01,Math.PI/2-.01);
   }
   if(document.pointerLockElement===canvas)cursor={x:renderer.width/2,y:renderer.height/2};
   else {const r=canvas.getBoundingClientRect();cursor={x:clamp(e.clientX-r.left,0,renderer.width),y:clamp(e.clientY-r.top,0,renderer.height)};}
 }
 canvas.addEventListener('pointermove',e=>{if(state==='running')pointEvent(e);});
-function ray(){const locked=document.pointerLockElement===canvas;return rayFromScreen(locked?renderer.width/2:cursor.x,locked?renderer.height/2:cursor.y,renderer.width,renderer.height,Number($('fov').value),camera);}
+function effectiveFov(){const c=config();return horizontalFov(c.fov,renderer.width,renderer.height,c.inputProfile);}
+function ray(){const locked=document.pointerLockElement===canvas;return rayFromScreen(locked?renderer.width/2:cursor.x,locked?renderer.height/2:cursor.y,renderer.width,renderer.height,effectiveFov(),camera);}
 canvas.addEventListener('pointerdown',e=>{
   if(state!=='running')return;
   if(e.button===2){rightHeld=true;canvas.setPointerCapture(e.pointerId);return;}
@@ -263,7 +306,12 @@ function collectEvents(){
     particles.push({...event.point,life:.6,head:event.head,text:event.killed?(event.head?'HEADSHOT +':'+')+event.points:'−'+event.damage});
   }
 }
-new ResizeObserver(()=>{renderer.resize();cursor={x:renderer.width/2,y:renderer.height/2};}).observe(arena);
+function resizeViewport(){
+  const rect=arena.getBoundingClientRect(),size=fitViewport(rect.width,rect.height,config().viewAspect);
+  canvas.style.width=size.width+'px';canvas.style.height=size.height+'px';renderer.resize();
+  cursor={x:renderer.width/2,y:renderer.height/2};
+}
+new ResizeObserver(resizeViewport).observe(arena);
 function frame(now){
   const dt=Math.min(.1,Math.max(0,(now-(last||now))/1000));last=now;
   if(state==='countdown'){
@@ -290,8 +338,8 @@ function frame(now){
       $('arenaStatus').textContent=obstacleDistance({x:dx/distance,y:dy/distance,z:dz/distance},session.obstacles,camera)<distance?'目标被遮挡 · A/D 侧移寻找角度':'目标已露出 · 左键点射';
     }
     if(state==='running'&&modes[mode].timed){const t=session.targets[0];$('arenaStatus').textContent=t.visible===false?'准备下一个目标…':mode==='shrink'?'目标缩小中 · 消失前命中':'剩余 '+Math.max(0,t.life-(session.elapsed-t.bornAt)).toFixed(1)+' 秒 · 及时命中';}
-    renderer.draw({camera,fov:Number($('fov').value),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered,obstacles:active.obstacles});
+    renderer.draw({camera,fov:effectiveFov(),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered,obstacles:active.obstacles});
   }
   requestAnimationFrame(frame);
 }
-renderHistory();selectMode('strafe');renderer.resize();requestAnimationFrame(frame);
+renderHistory();selectMode('strafe');resizeViewport();requestAnimationFrame(frame);
