@@ -38,7 +38,8 @@ document={
   querySelector:selector=>selector==='.training'?training:null,
   querySelectorAll:selector=>selector==='.mode'?get('modeList').children:selector==='[data-key]'?movement:[],
   addEventListener(type,handler){(listeners.get(type)||listeners.set(type,[]).get(type)).push(handler);},
-  exitPointerLock(){this.pointerLockElement=null;}
+  exitPointerLock(){this.pointerLockElement=null;},
+  async exitFullscreen(){this.fullscreenElement=null;for(const handler of listeners.get('fullscreenchange')||[])handler();}
 };
 class Renderer {constructor(){this.width=1000;this.height=500;}resize(){}draw(){}}
 const context=vm.createContext({
@@ -85,10 +86,15 @@ await get('start').onclick();advance(35);
 for(const handler of listeners.get('keydown'))handler({code:'Space',preventDefault(){}});
 assert.equal(get('pausedControls').hidden,false);
 assert.equal(get('quit').textContent,'结束本轮');
+document.fullscreenElement=training;
 get('quit').onclick();
+assert.equal(document.fullscreenElement,null,'Ending a fullscreen round returns to the mode settings');
 assert.equal(get('modeLockHint').hidden,true);
 await get('start').onclick();
+training.classList.add('immersive');body.classList.add('training-immersive');
 get('endRound').onclick();
+assert.equal(training.classList.contains('immersive'),false);
+assert.equal(body.classList.contains('training-immersive'),false);
 assert.equal(get('modeLockHint').hidden,true,'Toolbar exit also unlocks settings');
 await get('start').onclick();advance(340);
 assert.equal(get('endRound').hidden,true,'Completing the timer removes the exit action');

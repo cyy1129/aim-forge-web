@@ -164,6 +164,8 @@ function endRound(){
   const next=pendingMode||mode;
   state='idle';held=false;rightHeld=false;keys.clear();pendingMode=null;
   document.exitPointerLock?.();setControls(false);selectMode(next);
+  if(document.fullscreenElement===training)document.exitFullscreen().catch(()=>{});
+  if(training.classList.contains('immersive'))exitImmersive();
 }
 $('quit').onclick=endRound;
 $('endRound').onclick=endRound;
