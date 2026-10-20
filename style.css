@@ -34,3 +34,21 @@
 @media(min-width:1500px){.arena{height:540px}}
 @media(max-width:1100px){.workspace{grid-template-columns:260px minmax(0,1fr);gap:18px}.mode{padding:12px 6px}.mode-icon{width:17px;font-size:17px}.mode strong{font-size:10px}.mode em{font-size:6px;letter-spacing:.3px}.stats small{display:none}.stats>div{padding:0 12px}.controls-help{gap:10px}.arena{height:440px}}
 @media(max-width:760px){.workspace{display:flex}.settings{padding:14px}.mode-list{grid-template-columns:repeat(4,minmax(0,1fr))}.mode{padding:11px 5px;display:block;text-align:center}.mode-icon{display:none}.mode strong{display:block;font-size:10px}.mode em{font-size:6px;letter-spacing:0}.model-field{width:100%;margin-left:0}.movement-option{margin-top:13px}.arena{height:400px}.combat-hud{gap:10px;right:12px;font-size:8px}.combat-hud b{font-size:10px}.overlay-content{padding:20px;max-width:85%}.overlay h2{font-size:20px}.overlay p{font-size:10px}.controls-help>span:last-child{display:none}.touch-movement small{display:none}.arena-label{font-size:7px;left:12px}.stats>div{padding:0 10px}.stats span{font-size:9px}.stats strong{font-size:28px}}
+
+/* Keep fullscreen discoverable before and during a training session. */
+.arena-top{height:auto;min-height:46px;gap:14px}
+.fullscreen-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:10px 17px;border:1px solid #d3ff8a;border-radius:6px;background:var(--green);color:#172112;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 3px 18px #b8f35c20;transition:background .15s,box-shadow .15s;flex-shrink:0}
+.fullscreen-btn:hover{background:#d5ff95;box-shadow:0 4px 24px #b8f35c38}
+.fullscreen-icon{font-size:23px;font-weight:400;line-height:1}
+.fullscreen-btn kbd{background:#18231116;border-color:#17211233;color:#263a1b;font-size:9px;padding:3px 5px}
+body.training-immersive{overflow:hidden}
+.training.immersive{position:fixed;inset:0;z-index:1000;width:100%;height:100dvh;max-height:100dvh;background:var(--bg);padding:16px;display:flex;flex-direction:column}
+.training:is(:fullscreen,.immersive) .arena{flex:1;min-height:0;height:auto}
+.training:is(:fullscreen,.immersive) .arena-top,.training:is(:fullscreen,.immersive) .stats{flex-shrink:0}
+.training:is(:fullscreen,.immersive) .arena-top{margin-bottom:12px}
+.training:is(:fullscreen,.immersive) .history,.training:is(:fullscreen,.immersive) .controls-help,.training:is(:fullscreen,.immersive) .touch-movement{display:none}
+.training:is(:fullscreen,.immersive) .stats{padding:10px 0}
+.training:is(:fullscreen,.immersive) .stats strong{font-size:24px}
+.training:is(:fullscreen,.immersive) .fullscreen-btn{background:#23351f;color:var(--green);border-color:#83ab4e;box-shadow:none}
+.training:is(:fullscreen,.immersive) .fullscreen-btn kbd{color:#c3e69c;background:#c3f86a12;border-color:#83ab4e66}
+@media(max-width:760px){.arena-top{gap:8px}.arena-top>div{gap:5px}.arena-top .tag{font-size:6px;letter-spacing:.3px;padding:3px}.fullscreen-btn{min-height:40px;padding:9px 11px;gap:6px;font-size:11px}.fullscreen-icon{font-size:21px}.fullscreen-btn kbd{display:none}.training.immersive{padding:10px}}

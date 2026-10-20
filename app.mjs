@@ -16,12 +16,14 @@ try {
 try {
   const prefs=JSON.parse(localStorage.getItem('aimforge-settings')||'null');
   if(prefs)for(const id of settings)if(prefs[id]!==undefined){
+    // Older saves also persisted the former human default; migrate that once.
+    if(id==='targetModel'&&prefs.modelPreferenceVersion!==1)continue;
     if(booleanSettings.has(id))$(id).checked=!!prefs[id];
     else {const before=$(id).value;$(id).value=prefs[id];if(!$(id).value)$(id).value=before;}
   }
 }catch{}
 function persistSettings(){
-  const prefs={};for(const id of settings)prefs[id]=booleanSettings.has(id)?$(id).checked:$(id).value;
+  const prefs={modelPreferenceVersion:1};for(const id of settings)prefs[id]=booleanSettings.has(id)?$(id).checked:$(id).value;
   try{localStorage.setItem('aimforge-settings',JSON.stringify(prefs));}catch{}
 }
 function syncLabels(){
@@ -38,7 +40,7 @@ for(const id of settings)$(id).addEventListener('input',()=>{
 });
 $('resetSettings').onclick=()=>{
   if(!['idle','result'].includes(state))return;
-  for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'human',sensitivity:1,fov:103}))$(id).value=val;
+  for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'sphere',sensitivity:1,fov:103}))$(id).value=val;
   $('lockMouse').checked=true;$('movement').checked=true;persistSettings();selectMode(mode);
 };
 function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
@@ -147,7 +149,12 @@ document.addEventListener('keydown',e=>{
     if(state==='running'||state==='countdown'){e.preventDefault();pause();}
     else if(state==='paused'){e.preventDefault();start();}
   }
-  if(e.code==='Escape')pause();
+  if(e.code==='Escape'){
+    if(document.fullscreenElement===training)document.exitFullscreen().catch(()=>{});
+    if(document.querySelector('.training').classList.contains('immersive'))exitImmersive();
+    pause();
+  }
+  if(e.code==='KeyF'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();toggleFullscreen();}
   if(e.code==='KeyR'&&!e.repeat&&['running','paused','result'].includes(state)){e.preventDefault();start(true);}
 });
 document.addEventListener('keyup',e=>keys.delete(e.code));
@@ -176,10 +183,27 @@ canvas.addEventListener('pointerdown',e=>{
 window.addEventListener('pointerup',e=>{if(e.button===0)held=false;if(e.button===2)rightHeld=false;});
 canvas.addEventListener('pointercancel',()=>{held=false;rightHeld=false;});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-$('fullscreen').onclick=async()=>{
-  try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.training').requestFullscreen();}
-  catch{$('fullscreen').textContent='当前浏览器不支持全屏';}
-};
+const training=document.querySelector('.training');
+function syncFullscreen(){
+  const native=document.fullscreenElement===training,immersive=training.classList.contains('immersive'),active=native||immersive;
+  const label=active?(native?'退出全屏':'退出专注模式'):'全屏训练';
+  $('fullscreenLabel').textContent=label;
+  $('fullscreenShortcut').textContent=active?'ESC':'F';
+  $('fullscreen').setAttribute('aria-label',active?label:'进入全屏训练');
+  $('fullscreen').setAttribute('aria-pressed',String(active));
+  $('fullscreen').title=active?'退出全屏（Esc / F）':'全屏训练（F）';
+  document.body.classList.toggle('training-immersive',immersive);
+}
+function exitImmersive(){training.classList.remove('immersive');syncFullscreen();}
+async function toggleFullscreen(){
+  if(training.classList.contains('immersive')){exitImmersive();return;}
+  if(document.fullscreenElement){await document.exitFullscreen();return;}
+  try{await training.requestFullscreen();}
+  catch{training.classList.add('immersive');}
+  syncFullscreen();
+}
+document.addEventListener('fullscreenchange',syncFullscreen);
+$('fullscreen').onclick=toggleFullscreen;
 function collectEvents(){
   for(const event of session.events.splice(0)){
     shot=.055;
