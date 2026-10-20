@@ -1,14 +1,14 @@
 export const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 export const FLOOR = -4.2;
 export const modes = {
-  flick: {name:'精准点射',tag:'FLICKING',count:3,kind:'click',pattern:'static',icon:'⌖',description:'快速定位，头部命中获得额外分数'},
+  flick: {name:'精准点射',tag:'FLICKING',count:1,kind:'click',pattern:'static',icon:'⌖',description:'快速定位，头部命中获得额外分数'},
   track: {name:'平滑跟枪',tag:'TRACKING',count:1,kind:'track',pattern:'smooth',icon:'◎',description:'按住左键，平稳追踪目标'},
   switch: {name:'单靶切换',tag:'SEQUENTIAL',count:1,kind:'click',pattern:'static',icon:'⌖',description:'一次只出现一个目标，命中后随机刷新下一个'},
-  dynamic: {name:'移动靶点射',tag:'DYNAMIC CLICK',count:4,kind:'click',pattern:'linear',icon:'↗',description:'目标横向移动，抓住开枪时机'},
+  dynamic: {name:'移动靶点射',tag:'DYNAMIC CLICK',count:1,kind:'click',pattern:'linear',icon:'↗',description:'目标横向移动，抓住开枪时机'},
   reactive: {name:'急变向跟枪',tag:'REACTIVE',count:1,kind:'track',pattern:'reactive',icon:'⌁',description:'读取突然变向，迅速修正准星'},
-  popcorn: {name:'跳跃靶挑战',tag:'POPCORN',count:3,kind:'click',pattern:'bounce',icon:'↟',description:'瞄准弹跳目标，掌握垂直节奏'},
-  health: {name:'击杀切换',tag:'ELIMINATION',count:4,kind:'damage',pattern:'linear',icon:'⚡',description:'按住连射，击倒一个再切换下一个'},
-  strafe: {name:'移动对枪',tag:'STRAFE ARENA',count:3,kind:'damage',pattern:'reactive',icon:'⇄',description:'WASD 走位，追击不断变向的目标'}
+  popcorn: {name:'跳跃靶挑战',tag:'POPCORN',count:1,kind:'click',pattern:'bounce',icon:'↟',description:'瞄准弹跳目标，掌握垂直节奏'},
+  health: {name:'击杀切换',tag:'ELIMINATION',count:1,kind:'damage',pattern:'linear',icon:'⚡',description:'按住连射，击倒一个再切换下一个'},
+  strafe: {name:'移动对枪',tag:'STRAFE ARENA',count:1,kind:'damage',pattern:'reactive',icon:'⇄',description:'WASD 走位，追击不断变向的目标'}
 };
 export const difficulties = {easy:{radius:.9,speed:1.6},normal:{radius:.64,speed:2.8},hard:{radius:.43,speed:4.2}};
 export function viewPoint(point,camera) {

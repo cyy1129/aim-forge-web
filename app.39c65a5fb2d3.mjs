@@ -1,5 +1,5 @@
-import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets} from './core.30bb742cfa7b.mjs';
-import {Renderer} from './render.51adaf390527.mjs';
+import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets} from './core.f3255d41ef05.mjs';
+import {Renderer} from './render.79f9e2c8b346.mjs';
 
 const $=id=>document.getElementById(id),canvas=$('canvas'),arena=$('arena'),renderer=new Renderer(canvas);
 const freshCamera=()=>({yaw:0,pitch:0,x:0,y:0,z:3});
