@@ -22,6 +22,8 @@ class Element {
   addEventListener(type,handler){(this.events??={})[type]=handler;}
   focus(){document.activeElement=this;}
   setPointerCapture(){}
+  showModal(){this.open=true;}
+  close(){this.open=false;}
   getBoundingClientRect(){return {left:0,top:0,width:1000,height:500};}
 }
 for(const match of html.matchAll(/<(\w+)\b[^>]*\bid="([^"]+)"[^>]*>/g)){
@@ -157,3 +159,36 @@ get('endRound').onclick();assert.equal(get('tuneFaster').disabled,false);
 get('resetSettings').onclick();
 assert.equal(get('inputProfile').value,'custom');assert.equal(get('sensitivity').value,1);assert.equal(get('targetModel').value,'sphere');
 console.log('PASS: Delta profile, instant aspect fitting, reference-match labeling, fine-tuning buttons, sensitivity-driven turning, preference persistence, round locks, reset, and removed calibration UI.');
+
+// Opening feedback pauses a live round without losing progress or restarting it.
+get('feedbackHeader').onclick();
+assert.equal(get('feedbackDialog').open,true);
+assert.equal(get('feedbackPaused').hidden,true);
+get('feedbackClose').onclick();assert.equal(get('feedbackDialog').open,false);
+await get('start').onclick();advance(35);
+const feedbackElapsed=vm.runInContext('session.elapsed',context);
+get('feedbackTraining').onclick();
+assert.equal(vm.runInContext('state',context),'paused');
+assert.equal(document.pointerLockElement,null);
+assert.equal(get('feedbackPaused').hidden,false);
+advance(50);assert.equal(vm.runInContext('session.elapsed',context),feedbackElapsed);
+for(const handler of listeners.get('keydown'))handler({code:'KeyR',preventDefault(){}});
+assert.equal(vm.runInContext('state',context),'paused','Training hotkeys are ignored while feedback is open');
+get('feedbackClose').onclick();
+assert.equal(vm.runInContext('state',context),'paused','Closing feedback does not resume unexpectedly');
+await get('start').onclick();advance(35);
+assert.ok(vm.runInContext('session.elapsed',context)>feedbackElapsed,'Continuing preserves round progress');
+get('endRound').onclick();
+get('feedbackFooter').onclick();assert.equal(get('feedbackDialog').open,true);
+get('feedbackDialog').events.click({target:get('feedbackDialog'),clientX:-1,clientY:-1});
+assert.equal(get('feedbackDialog').open,false,'Clicking the backdrop closes feedback');
+for(const [id,template]of [['feedbackBug','bug_report.md'],['feedbackFeature','feature_request.md']]){
+  const tag=html.match(new RegExp('<a id="'+id+'"[^>]+>'))[0];
+  const url=new URL(tag.match(/href="([^"]+)"/)[1]);
+  assert.equal(url.origin,'https://github.com');assert.equal(url.pathname,'/cyy1129/aim-forge-web/issues/new');
+  assert.equal(url.searchParams.get('template'),template);
+  assert.match(tag,/target="_blank"/);assert.match(tag,/rel="noopener noreferrer"/);
+  const templateSource=readFileSync(new URL('../.github/ISSUE_TEMPLATE/'+template,import.meta.url),'utf8');
+  assert.match(templateSource,/^---\nname: /);assert.match(templateSource,/\nabout: /);
+}
+console.log('PASS: feedback entry points, pause/progress preservation, guarded hotkeys, deliberate resume, backdrop close, correct GitHub destinations, and matching issue templates.');

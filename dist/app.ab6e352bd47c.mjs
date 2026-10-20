@@ -229,9 +229,24 @@ function endRound(){
 }
 $('quit').onclick=endRound;
 $('endRound').onclick=endRound;
+const feedbackDialog=$('feedbackDialog');
+function openFeedback(){
+  if(feedbackDialog.open)return;
+  pause();
+  $('feedbackPaused').hidden=!roundInProgress();
+  feedbackDialog.showModal();
+}
+for(const id of ['feedbackHeader','feedbackTraining','feedbackFooter'])$(id).onclick=openFeedback;
+$('feedbackClose').onclick=()=>feedbackDialog.close();
+feedbackDialog.addEventListener('click',event=>{
+  if(event.target!==feedbackDialog)return;
+  const r=feedbackDialog.getBoundingClientRect();
+  if(event.clientX<r.left||event.clientX>r.left+r.width||event.clientY<r.top||event.clientY>r.top+r.height)feedbackDialog.close();
+});
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==canvas&&(state==='running'||state==='countdown'))pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('blur',pause);
 document.addEventListener('keydown',e=>{
+  if(feedbackDialog.open)return;
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)){
     if(state==='running'){e.preventDefault();keys.add(e.code);}return;
