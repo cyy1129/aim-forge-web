@@ -1,10 +1,11 @@
-import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets} from './core.f3255d41ef05.mjs';
-import {Renderer} from './render.79f9e2c8b346.mjs';
+import {clamp,modes,Session,movePlayer,rayFromScreen,traceTargets,obstacleDistance} from './core.e707d9c74151.mjs';
+import {Renderer} from './render.cdb1670900d3.mjs';
 
 const $=id=>document.getElementById(id),canvas=$('canvas'),arena=$('arena'),renderer=new Renderer(canvas);
 const freshCamera=()=>({yaw:0,pitch:0,x:0,y:0,z:3});
 let state='idle',mode='strafe',session=null,preview=null,pendingMode=null,camera=freshCamera(),cursor={x:0,y:0};
 let held=false,rightHeld=false,count=0,last=0,flash=0,shot=0,particles=[],audio=null,sound=true,storageAvailable=true,mouseFallback=false,starting=false;
+let feedbackLife=0;
 const keys=new Set(),settings=['duration','difficulty','targetModel','movement','sensitivity','fov','lockMouse'];
 const booleanSettings=new Set(['lockMouse','movement']);
 let history=[];
@@ -22,8 +23,10 @@ try {
     else {const before=$(id).value;$(id).value=prefs[id];if(!$(id).value)$(id).value=before;}
   }
 }catch{}
+let preferredModel=$('targetModel').value,preferredMovement=$('movement').checked;
 function persistSettings(){
   const prefs={modelPreferenceVersion:1};for(const id of settings)prefs[id]=booleanSettings.has(id)?$(id).checked:$(id).value;
+  prefs.targetModel=preferredModel;prefs.movement=preferredMovement;
   try{localStorage.setItem('aimforge-settings',JSON.stringify(prefs));}catch{}
 }
 function syncLabels(){
@@ -35,17 +38,22 @@ function syncLabels(){
   }
 }
 for(const id of settings)$(id).addEventListener('input',()=>{
+  if(id==='targetModel')preferredModel=$('targetModel').value;
+  if(id==='movement')preferredMovement=$('movement').checked;
   persistSettings();syncLabels();
   if(id==='targetModel'||id==='difficulty')makePreview();
 });
 $('resetSettings').onclick=()=>{
   if(!['idle','result'].includes(state))return;
   for(const [id,val]of Object.entries({duration:60,difficulty:'normal',targetModel:'sphere',sensitivity:1,fov:103}))$(id).value=val;
+  preferredModel='sphere';preferredMovement=true;
   $('lockMouse').checked=true;$('movement').checked=true;persistSettings();selectMode(mode);
 };
 function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function setControls(disabled){
   for(const id of settings)$(id).disabled=disabled;
+  $('targetModel').disabled=disabled||!!modes[mode].requiresHuman;
+  $('movement').disabled=disabled||!!modes[mode].requiresMovement;
   document.querySelectorAll('.mode').forEach(b=>{
     b.setAttribute('aria-disabled',String(disabled));
     b.setAttribute('aria-describedby',disabled?'modeLockMessage':'');
@@ -86,18 +94,27 @@ $('clearHistory').onclick=()=>{
 };
 for(const [id,m]of Object.entries(modes)){
   const button=document.createElement('button');button.className='mode';button.dataset.mode=id;
-  button.innerHTML='<span class="mode-icon">'+m.icon+'</span><span><strong>'+m.name+'</strong><em>'+m.tag+'</em><p>'+m.description+'</p></span>';
+  button.innerHTML='<span class="mode-icon">'+m.icon+'</span><span><strong>'+m.name+(m.isNew?'<small class="new-mode-tag">新</small>':'')+'</strong><em>'+m.tag+'</em><p>'+m.description+'</p></span>';
   button.onclick=()=>requestMode(id);$('modeList').append(button);
+}
+$('modeCount').textContent=Object.keys(modes).length+' MODES';
+function applyModeSettings(){
+  $('targetModel').value=modes[mode].requiresHuman?'human':preferredModel;
+  $('movement').checked=modes[mode].requiresMovement?true:preferredMovement;
+  $('scenarioGuide').textContent=modes[mode].hint||modes[mode].description;
+  $('modelRequirement').hidden=!modes[mode].requiresHuman;
+  $('movementHint').textContent=modes[mode].requiresMovement?'本模式需要 WASD 走位，已自动开启':'WASD 走位 · Shift 加速';
 }
 function makePreview(){preview=new Session(mode,$('difficulty').value,120,$('targetModel').value);}
 function selectMode(next){
   mode=next;state='idle';session=null;pendingMode=null;camera=freshCamera();keys.clear();held=false;rightHeld=false;particles=[];
+  applyModeSettings();setControls(false);
   document.querySelectorAll('.mode').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',String(b.dataset.mode===mode));});
   const m=modes[mode];$('modeTitle').textContent=m.name;$('modeTag').textContent=m.tag;
   $('shootHelp').textContent=m.kind==='click'?'单发点射':m.kind==='damage'?'按住连射':'按住跟随';
   $('accuracyLabel').innerHTML=m.kind==='track'?'追踪率 <small>ON TARGET</small>':'命中率 <small>ACCURACY</small>';
   $('reactionLabel').innerHTML=m.kind==='track'?'有效追踪 <small>ON TARGET TIME</small>':'平均击倒间隔 <small>ELIMINATION</small>';
-  showOverlay('移动、瞄准、命中。',m.description+'。'+(m.kind==='damage'?'目标有 100 点生命，击倒后自动补充。':''),'开始训练');
+  showOverlay(m.isNew?m.name:'移动、瞄准、命中。',m.hint||m.description+'。'+(m.kind==='damage'?'目标有 100 点生命，击倒后自动补充。':''),'开始训练');
   $('pausedControls').hidden=true;$('quit').textContent='结束本轮';$('arenaStatus').textContent='准备就绪 · '+modes[mode].count+' 个目标';
   makePreview();updateStats();syncLabels();
 }
@@ -105,15 +122,17 @@ function showOverlay(title,description,button){
   $('overlay').hidden=false;$('overlayTitle').textContent=title;$('overlayDescription').textContent=description;
   $('start').textContent=button+' ↗';$('countdown').hidden=true;arena.classList.remove('playing');
   $('roundExitNote').hidden=state!=='paused';
+  feedbackLife=0;$('shotFeedback').hidden=true;
 }
 function updateStats(){
   const s=session,track=modes[mode].kind==='track';
   $('score').textContent=s?s.score.toLocaleString():'0';
-  $('accuracy').innerHTML=(s&&(track?s.elapsed:s.shots)?s.accuracy.toFixed(1):'—')+'<i>%</i>';
+  $('accuracy').innerHTML=(s&&(track?s.elapsed:s.shots+s.timeouts)?s.accuracy.toFixed(1):'—')+'<i>%</i>';
   $('reaction').innerHTML=track?(s?s.trackOn.toFixed(1):'—')+'<i>s</i>':(s&&s.reaction!==null?Math.round(s.reaction):'—')+'<i>ms</i>';
   $('timer').textContent=time(s?s.duration-s.elapsed:Number($('duration').value));
   $('timeProgress').style.width=(s?100*(1-s.elapsed/s.duration):100)+'%';
   $('kills').textContent=s?s.kills:'0';$('headshots').textContent=s?s.headshots:'0';
+  $('mistakes').textContent=s?s.failures:'0';
   $('position').textContent='X '+camera.x.toFixed(1)+' · Z '+camera.z.toFixed(1)+($('movement').checked?' / WASD':' / 固定站位');
 }
 function beep(freq=700){
@@ -237,10 +256,11 @@ document.addEventListener('fullscreenchange',syncFullscreen);
 $('fullscreen').onclick=toggleFullscreen;
 function collectEvents(){
   for(const event of session.events.splice(0)){
-    shot=.055;
+    if(event.notice){$('shotFeedback').textContent=event.notice;$('shotFeedback').hidden=false;feedbackLife=1.2;}
+    if(!event.expired)shot=.055;
     if(event.miss)continue;
     flash=.12;beep(event.head?1100:event.killed?850:550);
-    particles.push({...event.point,life:.6,head:event.head,text:event.killed?(event.head?'HEADSHOT +150':'+100'):'−'+event.damage});
+    particles.push({...event.point,life:.6,head:event.head,text:event.killed?(event.head?'HEADSHOT +':'+')+event.points:'−'+event.damage});
   }
 }
 new ResizeObserver(()=>{renderer.resize();cursor={x:renderer.width/2,y:renderer.height/2};}).observe(arena);
@@ -251,18 +271,26 @@ function frame(now){
     else $('countdown').textContent=Math.ceil(count);
   }else if(state==='running'){
     if($('movement').checked)movePlayer(camera,keys,dt,camera.yaw);
+    else {camera.speed=0;camera.moving=false;}
     const done=session.tick(dt,ray(),held,camera);collectEvents();updateStats();if(done)finish();
   }else if(state==='idle'&&preview){if(preview.tick(dt,{x:0,y:0,z:-1},false))makePreview();}
   particles=particles.filter(p=>(p.life-=dt)>0);flash=Math.max(0,flash-dt);shot=Math.max(0,shot-dt);
+  feedbackLife=Math.max(0,feedbackLife-dt);if(!feedbackLife)$('shotFeedback').hidden=true;
   const active=session||preview;
   if(active){
     const locked=document.pointerLockElement===canvas,aim=locked?{x:renderer.width/2,y:renderer.height/2}:cursor;
     const tracking=modes[mode].kind==='track';
-    const hovered=state==='running'&&(held||tracking)?traceTargets(ray(),active.targets,camera,active.elapsed)?.target:null;
+    const hovered=state==='running'&&(held||tracking)?traceTargets(ray(),active.targets,camera,active.elapsed,active.obstacles)?.target:null;
     if(state==='running'&&tracking){
       $('arenaStatus').textContent=hovered?(held?'有效追踪中':'已瞄准 · 按住左键开始计分'):($('targetModel').value==='sphere'?'跟随目标 · 瞄准球体后变蓝':'跟随目标 · 按住左键累计分数');
     }
-    renderer.draw({camera,fov:Number($('fov').value),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered});
+    if(state==='running'&&mode==='stop')$('arenaStatus').textContent=camera.moving||session.stillTime<.1?'移动中 · 松开方向键并停稳后开枪':'已停稳 · 可以点射';
+    if(state==='running'&&mode==='peek'){
+      const t=session.targets[0],dx=t.x-camera.x,dy=t.y-camera.y,dz=t.z-camera.z,distance=Math.hypot(dx,dy,dz);
+      $('arenaStatus').textContent=obstacleDistance({x:dx/distance,y:dy/distance,z:dz/distance},session.obstacles,camera)<distance?'目标被遮挡 · A/D 侧移寻找角度':'目标已露出 · 左键点射';
+    }
+    if(state==='running'&&modes[mode].timed){const t=session.targets[0];$('arenaStatus').textContent=t.visible===false?'准备下一个目标…':mode==='shrink'?'目标缩小中 · 消失前命中':'剩余 '+Math.max(0,t.life-(session.elapsed-t.bornAt)).toFixed(1)+' 秒 · 及时命中';}
+    renderer.draw({camera,fov:Number($('fov').value),targets:active.targets,time:active.elapsed,running:state==='running',cursor:aim,flash,shot,particles,hovered,obstacles:active.obstacles});
   }
   requestAnimationFrame(frame);
 }

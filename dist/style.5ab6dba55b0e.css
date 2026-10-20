@@ -72,3 +72,13 @@ body.training-immersive{overflow:hidden}
 .round-exit[hidden],.round-exit-note[hidden]{display:none}
 .overlay .round-exit-note{margin:12px 0 0;color:#b9a89b;font-size:10px}
 @media(max-width:760px){.arena-top>.training-actions{gap:7px}.end-round-btn{padding:10px 12px}.overlay-actions{flex-direction:column}.overlay-actions>*{width:100%}.overlay-actions button{width:100%}}
+
+/* Fourteen scenarios, readable rules, and feedback for rule-specific misses. */
+.mode-list{max-height:325px;overflow-y:auto;overscroll-behavior:contain;align-content:start;scrollbar-width:thin;scrollbar-color:#526849 #192120;padding-right:3px}
+.mode .new-mode-tag{display:inline-block;flex:0 0 auto;margin-left:4px;padding:2px 4px;border-radius:3px;background:#c3f86a1a;color:#c3f86a;font-size:7px;font-weight:500;line-height:1}
+.scenario-guide{margin:0 0 12px;padding:9px 12px;border-left:2px solid #779f51;border-radius:0 4px 4px 0;background:#1a251e;color:#aabca5;font-size:11px;line-height:1.7}
+.shot-feedback{position:absolute;top:66px;left:50%;transform:translateX(-50%);max-width:85%;padding:9px 14px;border:1px solid #b98b5b66;border-radius:6px;background:#33271edb;color:#f4cda7;font-size:12px;line-height:1.6;text-align:center;pointer-events:none;z-index:4}
+.shot-feedback[hidden]{display:none}
+.training:is(:fullscreen,.immersive) .scenario-guide{flex-shrink:0;margin-bottom:10px}
+@media(max-width:760px){.mode-list{max-height:230px}.mode .new-mode-tag{display:none}.scenario-guide{font-size:10px}.combat-hud{gap:8px}.combat-hud b{margin-left:3px;font-size:10px}.shot-feedback{font-size:11px;top:55px}}
+\n.field-note{display:block;margin-top:7px;color:#c7b18d;font-size:9px;line-height:1.6}.field-note[hidden]{display:none}\n

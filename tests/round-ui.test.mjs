@@ -102,4 +102,32 @@ assert.equal(get('modeLockHint').hidden,true);
 assert.equal(JSON.parse(storage.get('aimforge-history')).length,1);
 choose('switch');
 assert.equal(title(),'单靶切换','Completed rounds allow immediate mode selection');
+
+assert.equal(get('modeList').children.length,14);
+assert.equal(get('modeCount').textContent,'14 MODES');
+get('movement').checked=false;get('movement').events.input();
+choose('stop');
+assert.equal(get('movement').checked,true);
+assert.equal(get('movement').disabled,true);
+assert.match(get('movementHint').textContent,/本模式需要/);
+choose('headshot');
+assert.equal(get('targetModel').value,'human');
+assert.equal(get('targetModel').disabled,true);
+assert.equal(get('modelRequirement').hidden,false);
+assert.match(get('scenarioGuide').textContent,/只有头部/);
+choose('flick');
+assert.equal(get('targetModel').value,'sphere','Required human mode must not overwrite the saved sphere preference');
+assert.equal(get('targetModel').disabled,false);
+assert.equal(get('movement').checked,false,'Required movement must not overwrite the saved movement preference');
+assert.equal(get('movement').disabled,false);
+assert.equal(get('modelRequirement').hidden,true);
+
+
+choose('reflex');
+await get('start').onclick();advance(46);
+assert.ok(Number(get('mistakes').textContent)>=1,'Timed targets report misses even without firing');
+assert.ok(get('accuracy').innerHTML.startsWith('0.0'),'Timed misses display a zero accuracy instead of an empty placeholder');
+assert.match(get('shotFeedback').textContent,/漏靶/);
+get('endRound').onclick();
+
 console.log('PASS: round lock explanation, prominent exit visibility, pause/continue, explicit end-and-switch, early-exit scoring, toolbar exit, natural completion, and mode unlocking.');
