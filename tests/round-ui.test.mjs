@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import * as core from '../dist/core.mjs';
+import * as inputProfile from '../dist/input-profile.mjs';
 
 // Exercise the application handlers without a browser, controlling animation time.
 const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
@@ -43,7 +44,7 @@ document={
 };
 class Renderer {constructor(){this.width=1000;this.height=500;}resize(){}draw(){}}
 const context=vm.createContext({
-  ...core,Renderer,document,window:{addEventListener(){}},
+  ...core,...inputProfile,Renderer,document,window:{addEventListener(){}},
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   confirm:()=>true,ResizeObserver:class{observe(){}},
   requestAnimationFrame:callback=>{frameCallback=callback;return 1;},console
@@ -131,3 +132,28 @@ assert.match(get('shotFeedback').textContent,/漏靶/);
 get('endRound').onclick();
 
 console.log('PASS: round lock explanation, prominent exit visibility, pause/continue, explicit end-and-switch, early-exit scoring, toolbar exit, natural completion, and mode unlocking.');
+
+get('inputProfile').value='delta';get('inputProfile').events.input();
+assert.equal(get('deltaInput').hidden,false);assert.equal(get('customInput').hidden,true);
+assert.equal(get('viewAspect').value,'16:9');
+assert.ok(Math.abs(parseFloat(get('canvas').style.width)-500*16/9)<1e-9,'Selecting Delta immediately fits the existing canvas');
+assert.match(get('fovLabel').textContent,/16:9/);
+assert.match(get('inputBadge').textContent,/参考匹配/);
+assert.ok(!html.includes('calibrationPanel')&&!html.includes('cm360'),'Removed calibration has no UI entry or measurement requirement');
+get('tuneFaster').onclick();assert.equal(Number(get('matchTweak').value),1.05);
+get('tuneSlower').onclick();assert.equal(Number(get('matchTweak').value),.997);
+get('tuneReset').onclick();assert.equal(Number(get('matchTweak').value),1);
+get('gameSensitivity').value='2.123';get('gameSensitivity').events.input();
+assert.equal(JSON.parse(storage.get('aimforge-settings')).gameSensitivity,2.123);
+get('lockMouse').checked=true;
+get('canvas').requestPointerLock=async()=>{document.pointerLockElement=get('canvas');};
+await get('start').onclick();advance(35);
+assert.match(get('inputStatus').textContent,/原始鼠标输入/);
+assert.ok(get('gameSensitivity').disabled&&get('tuneFaster').disabled);
+const turn=vm.runInContext('camera.yaw',context);
+get('canvas').events.pointermove({movementX:1000,movementY:0});
+assert.ok(Math.abs(vm.runInContext('camera.yaw',context)-turn-.022*Math.PI/180*2.123*1000)<1e-9,'The game sensitivity field actually drives horizontal turning');
+get('endRound').onclick();assert.equal(get('tuneFaster').disabled,false);
+get('resetSettings').onclick();
+assert.equal(get('inputProfile').value,'custom');assert.equal(get('sensitivity').value,1);assert.equal(get('targetModel').value,'sphere');
+console.log('PASS: Delta profile, instant aspect fitting, reference-match labeling, fine-tuning buttons, sensitivity-driven turning, preference persistence, round locks, reset, and removed calibration UI.');

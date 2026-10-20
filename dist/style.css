@@ -81,4 +81,40 @@ body.training-immersive{overflow:hidden}
 .shot-feedback[hidden]{display:none}
 .training:is(:fullscreen,.immersive) .scenario-guide{flex-shrink:0;margin-bottom:10px}
 @media(max-width:760px){.mode-list{max-height:230px}.mode .new-mode-tag{display:none}.scenario-guide{font-size:10px}.combat-hud{gap:8px}.combat-hud b{margin-left:3px;font-size:10px}.shot-feedback{font-size:11px;top:55px}}
-\n.field-note{display:block;margin-top:7px;color:#c7b18d;font-size:9px;line-height:1.6}.field-note[hidden]{display:none}\n
+
+.field-note{display:block;margin-top:7px;color:#c7b18d;font-size:9px;line-height:1.6}.field-note[hidden]{display:none}
+
+/* Game matching: precise values and a full-size viewport. */
+.input-settings{margin-top:20px;padding-top:5px;border-top:1px solid var(--line)}
+.input-settings [hidden]{display:none}
+.input-settings .field{display:block;width:100%;margin-left:0}
+.number-label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#bac5c1;font-size:11px;margin-top:17px}
+input[type=number]{min-width:0;width:92px;border:1px solid #39443f;border-radius:5px;background:#111918;color:#e2eedb;padding:8px;font-size:12px;font-variant-numeric:tabular-nums}
+.unit-input{display:flex;align-items:center;gap:5px;color:#829488;font-size:10px}.unit-input input{width:80px}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}
+.input-grid label{min-width:0;font-size:10px;color:#9caea4;line-height:1.7}
+.input-grid input{display:block;width:100%;margin-top:5px}
+.input-note{margin:9px 0 0;color:#8c9d93;font-size:10px;line-height:1.8}
+.input-advanced{margin-top:18px;padding-top:13px;border-top:1px solid #2b3730}
+.input-advanced summary{cursor:pointer;color:#a4b59f;font-size:11px;line-height:1.8}
+.arena{background:#090e0d}.arena canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.training:is(:fullscreen,.immersive){position:fixed;inset:0;padding:0;width:100%;height:100dvh;display:block;background:#090e0d;isolation:isolate}
+.training:is(:fullscreen,.immersive) .arena{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0}
+.training:is(:fullscreen,.immersive) .arena-top{position:absolute;top:14px;left:18px;right:18px;z-index:5;min-height:40px;margin:0;pointer-events:none}
+.training:is(:fullscreen,.immersive) .training-actions{pointer-events:auto}
+.training:is(:fullscreen,.immersive) .mode-heading{flex:0 1 auto;background:#101b16ce;border:1px solid #50604b55;border-radius:6px;padding:10px 12px}
+.training:is(:fullscreen,.immersive) .stats{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);width:min(650px,calc(100% - 36px));z-index:3;background:#101b16d9;border:1px solid #50604b55;border-radius:8px;pointer-events:none;padding:10px 0}
+.training:is(:fullscreen,.immersive) .stats strong{font-size:24px}
+.training:is(:fullscreen,.immersive) .scenario-guide{display:none}
+.training:is(:fullscreen,.immersive) .arena-label{display:none}
+.training:is(:fullscreen,.immersive) .combat-hud{top:78px;right:20px;background:#101b16bb;border-radius:5px;padding:7px 10px}
+.training:is(:fullscreen,.immersive) .arena-axis{bottom:125px}
+.training:is(:fullscreen,.immersive) .shot-feedback{top:120px}
+@media(max-width:760px){.input-settings{margin-top:15px}.training:is(:fullscreen,.immersive) .arena-top{left:10px;right:10px;top:10px}.training:is(:fullscreen,.immersive) .mode-heading{padding:8px}.training:is(:fullscreen,.immersive) .stats>div{padding:0 8px}.training:is(:fullscreen,.immersive) .stats strong{font-size:21px}.training:is(:fullscreen,.immersive) .combat-hud{top:110px}.training:is(:fullscreen,.immersive) .shot-feedback{top:150px}}
+@media(max-height:520px){.training:is(:fullscreen,.immersive) .stats{bottom:30px;padding:6px 0}.training:is(:fullscreen,.immersive) .stats strong{font-size:18px}.training:is(:fullscreen,.immersive) .arena-axis{display:none}.training:is(:fullscreen,.immersive) .arena-bottom{bottom:9px}}
+
+
+.input-badge{position:absolute;top:44px;left:21px;max-width:calc(100% - 42px);font-size:9px;line-height:1.7;color:#9bad9f;pointer-events:none}
+.training:is(:fullscreen,.immersive) .input-badge{top:78px;left:20px;background:#101b16bb;padding:6px 9px;border-radius:5px}
+@media(max-width:760px){.input-badge{left:12px;font-size:8px}.training:is(:fullscreen,.immersive) .input-badge{top:110px;left:12px;max-width:48%;font-size:8px}}
+.tune-actions{display:flex;gap:5px;margin-top:10px}.tune-actions button{flex:1;min-width:0;border:1px solid #40503e;background:#202b23;color:#c4d5bb;border-radius:5px;padding:8px 2px;font-size:10px;white-space:nowrap}.tune-actions button:hover{border-color:#91b96a;background:#2b3829}
