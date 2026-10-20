@@ -3,7 +3,7 @@ import {Renderer} from './render.mjs';
 
 const $=id=>document.getElementById(id),canvas=$('canvas'),arena=$('arena'),renderer=new Renderer(canvas);
 const freshCamera=()=>({yaw:0,pitch:0,x:0,y:0,z:3});
-let state='idle',mode='strafe',session=null,preview=null,camera=freshCamera(),cursor={x:0,y:0};
+let state='idle',mode='strafe',session=null,preview=null,pendingMode=null,camera=freshCamera(),cursor={x:0,y:0};
 let held=false,rightHeld=false,count=0,last=0,flash=0,shot=0,particles=[],audio=null,sound=true,storageAvailable=true,mouseFallback=false,starting=false;
 const keys=new Set(),settings=['duration','difficulty','targetModel','movement','sensitivity','fov','lockMouse'];
 const booleanSettings=new Set(['lockMouse','movement']);
@@ -46,8 +46,28 @@ $('resetSettings').onclick=()=>{
 function time(s){s=Math.ceil(Math.max(0,s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function setControls(disabled){
   for(const id of settings)$(id).disabled=disabled;
-  document.querySelectorAll('.mode').forEach(b=>b.disabled=disabled);
+  document.querySelectorAll('.mode').forEach(b=>{
+    b.setAttribute('aria-disabled',String(disabled));
+    b.setAttribute('aria-describedby',disabled?'modeLockMessage':'');
+    b.classList.toggle('is-locked',disabled);
+  });
+  $('modeLockHint').hidden=!disabled;
+  $('modeLockMessage').textContent='结束本轮后可切换模式和调整参数。';
+  $('endRound').hidden=!disabled;
+  $('endRound').textContent='结束本轮';
   $('resetSettings').disabled=disabled;
+}
+function roundInProgress(){return ['countdown','running','paused'].includes(state);}
+function requestMode(next){
+  if(!roundInProgress()){selectMode(next);return;}
+  if(next===mode)return;
+  pendingMode=next;
+  pause();
+  const message='本轮训练尚未结束。切换到“'+modes[next].name+'”前，请先结束本轮。';
+  $('modeLockMessage').textContent=message;
+  showOverlay('切换模式前，请先结束本轮',message,'继续本轮');
+  $('quit').textContent='结束并切换';
+  $('endRound').textContent='结束并切换';
 }
 function renderHistory(){
   $('sessionCount').textContent=String(history.length).padStart(2,'0');$('emptyHistory').hidden=!!history.length;$('historyBody').replaceChildren();
@@ -67,23 +87,24 @@ $('clearHistory').onclick=()=>{
 for(const [id,m]of Object.entries(modes)){
   const button=document.createElement('button');button.className='mode';button.dataset.mode=id;
   button.innerHTML='<span class="mode-icon">'+m.icon+'</span><span><strong>'+m.name+'</strong><em>'+m.tag+'</em><p>'+m.description+'</p></span>';
-  button.onclick=()=>selectMode(id);$('modeList').append(button);
+  button.onclick=()=>requestMode(id);$('modeList').append(button);
 }
 function makePreview(){preview=new Session(mode,$('difficulty').value,120,$('targetModel').value);}
 function selectMode(next){
-  mode=next;state='idle';session=null;camera=freshCamera();keys.clear();held=false;particles=[];
+  mode=next;state='idle';session=null;pendingMode=null;camera=freshCamera();keys.clear();held=false;rightHeld=false;particles=[];
   document.querySelectorAll('.mode').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',String(b.dataset.mode===mode));});
   const m=modes[mode];$('modeTitle').textContent=m.name;$('modeTag').textContent=m.tag;
   $('shootHelp').textContent=m.kind==='click'?'单发点射':m.kind==='damage'?'按住连射':'按住跟随';
   $('accuracyLabel').innerHTML=m.kind==='track'?'追踪率 <small>ON TARGET</small>':'命中率 <small>ACCURACY</small>';
   $('reactionLabel').innerHTML=m.kind==='track'?'有效追踪 <small>ON TARGET TIME</small>':'平均击倒间隔 <small>ELIMINATION</small>';
   showOverlay('移动、瞄准、命中。',m.description+'。'+(m.kind==='damage'?'目标有 100 点生命，击倒后自动补充。':''),'开始训练');
-  $('pausedControls').hidden=true;$('arenaStatus').textContent='准备就绪 · '+modes[mode].count+' 个目标';
+  $('pausedControls').hidden=true;$('quit').textContent='结束本轮';$('arenaStatus').textContent='准备就绪 · '+modes[mode].count+' 个目标';
   makePreview();updateStats();syncLabels();
 }
 function showOverlay(title,description,button){
   $('overlay').hidden=false;$('overlayTitle').textContent=title;$('overlayDescription').textContent=description;
   $('start').textContent=button+' ↗';$('countdown').hidden=true;arena.classList.remove('playing');
+  $('roundExitNote').hidden=state!=='paused';
 }
 function updateStats(){
   const s=session,track=modes[mode].kind==='track';
@@ -116,7 +137,8 @@ async function start(restart=false){
   try {
     const resume=state==='paused'&&!restart;await acquireMouse();beep(400);
     if(!resume){session=new Session(mode,$('difficulty').value,Number($('duration').value),$('targetModel').value);camera=freshCamera();particles=[];cursor={x:renderer.width/2,y:renderer.height/2};}
-    held=false;rightHeld=false;keys.clear();state='countdown';count=3;setControls(true);
+    pendingMode=null;held=false;rightHeld=false;keys.clear();state='countdown';count=3;setControls(true);
+    $('quit').textContent='结束本轮';$('roundExitNote').hidden=true;
     $('overlay').hidden=true;$('pausedControls').hidden=true;$('countdown').hidden=false;$('countdown').textContent='3';
     $('arenaStatus').textContent='训练即将开始';arena.classList.add('playing');canvas.focus();updateStats();
   }finally{starting=false;}
@@ -125,7 +147,7 @@ $('start').onclick=()=>start();
 function pause(){
   if(state!=='running'&&state!=='countdown')return;
   state='paused';held=false;rightHeld=false;keys.clear();document.exitPointerLock?.();
-  showOverlay('稍作调整，保持专注','走位和训练进度已保留。点击继续重新进入状态。','继续训练');
+  showOverlay('本轮已暂停','进度已保留。可继续训练，或结束本轮后切换模式和调整参数。','继续训练');
   $('pausedControls').hidden=false;$('overlayHint').textContent='已暂停 · 本轮进度已保留';$('arenaStatus').textContent='已暂停';
 }
 function finish(){
@@ -137,7 +159,14 @@ function finish(){
   $('overlayHint').textContent=storageAvailable?'成绩已保存到当前浏览器。':'浏览器存储不可用，成绩仅在本次页面中保留。';
   $('arenaStatus').textContent='训练完成';beep(900);updateStats();
 }
-$('quit').onclick=()=>{setControls(false);selectMode(mode);};
+function endRound(){
+  if(!roundInProgress())return;
+  const next=pendingMode||mode;
+  state='idle';held=false;rightHeld=false;keys.clear();pendingMode=null;
+  document.exitPointerLock?.();setControls(false);selectMode(next);
+}
+$('quit').onclick=endRound;
+$('endRound').onclick=endRound;
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==canvas&&(state==='running'||state==='countdown'))pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('blur',pause);
 document.addEventListener('keydown',e=>{

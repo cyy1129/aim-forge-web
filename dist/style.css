@@ -37,7 +37,7 @@
 
 /* Keep fullscreen discoverable before and during a training session. */
 .arena-top{height:auto;min-height:44px;gap:12px;flex-wrap:wrap}
-.arena-top>div{min-width:0;flex:1 1 180px;flex-wrap:wrap}
+.arena-top>.mode-heading{min-width:0;flex:1 1 180px;flex-wrap:wrap}
 .fullscreen-btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:40px;margin:0 0 0 auto;padding:10px 15px;border:1px solid #556447;border-radius:8px;background:#202a22;color:#e3eddb;font:600 12px/18px Inter,"PingFang SC","Microsoft YaHei",sans-serif;white-space:nowrap;box-shadow:none;flex:0 0 auto;transition:background .15s,border-color .15s}
 .fullscreen-btn:hover{background:#29372a;border-color:#8dab6c;color:#f2f7ee;box-shadow:none}
 .fullscreen-btn:focus-visible{outline:2px solid #91b96a;outline-offset:2px;box-shadow:none}
@@ -52,4 +52,23 @@ body.training-immersive{overflow:hidden}
 .training:is(:fullscreen,.immersive) .stats{padding:10px 0}
 .training:is(:fullscreen,.immersive) .stats strong{font-size:24px}
 .training:is(:fullscreen,.immersive) .fullscreen-btn{background:#202a22;color:#e3eddb;border-color:#556447;box-shadow:none}
-@media(max-width:760px){.arena-top{gap:8px}.arena-top>div{gap:5px;flex-basis:160px}.arena-top .tag{font-size:6px;letter-spacing:.3px;padding:3px}.fullscreen-btn{min-height:40px;padding:10px 12px;gap:8px;font-size:12px}.training.immersive{padding:10px}}
+@media(max-width:760px){.arena-top{gap:8px}.arena-top>.mode-heading{gap:5px;flex-basis:160px}.arena-top .tag{font-size:6px;letter-spacing:.3px;padding:3px}.fullscreen-btn{min-height:40px;padding:10px 12px;gap:8px;font-size:12px}.training.immersive{padding:10px}}
+
+/* Explain round locks and keep the exit action within easy reach. */
+.mode.is-locked{opacity:.55;cursor:not-allowed}
+.mode.is-locked.active{opacity:.9}
+.mode-lock-hint{margin-top:12px;padding:12px;border:1px solid #80654766;border-radius:6px;background:#30281d;color:#d9c6a7}
+.mode-lock-hint[hidden]{display:none}
+.mode-lock-hint strong{font-size:11px;font-weight:600}
+.mode-lock-hint p{margin:6px 0 0;font-size:10px;line-height:1.7;color:#b8aa91}
+.arena-top>.training-actions{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-left:auto;max-width:100%}
+.training-actions .fullscreen-btn{margin:0}
+.end-round-btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border:1px solid #b47b68;border-radius:8px;background:#3b2924;color:#ffdbce;font:600 12px/18px Inter,"PingFang SC","Microsoft YaHei",sans-serif;white-space:nowrap;box-shadow:none}
+.end-round-btn[hidden]{display:none}
+.end-round-btn:hover{background:#503229;border-color:#d59981}
+.end-round-btn:focus-visible{outline:2px solid #d59981;outline-offset:2px}
+.overlay-actions{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px}
+.overlay-actions .end-round-btn{min-width:164px;min-height:43px}
+.round-exit[hidden],.round-exit-note[hidden]{display:none}
+.overlay .round-exit-note{margin:12px 0 0;color:#b9a89b;font-size:10px}
+@media(max-width:760px){.arena-top>.training-actions{gap:7px}.end-round-btn{padding:10px 12px}.overlay-actions{flex-direction:column}.overlay-actions>*{width:100%}.overlay-actions button{width:100%}}
