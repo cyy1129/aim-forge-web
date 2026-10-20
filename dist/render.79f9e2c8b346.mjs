@@ -1,4 +1,4 @@
-import {FLOOR,bodyParts,project,rotateX,viewPoint} from './core.30bb742cfa7b.mjs';
+import {FLOOR,bodyParts,project,rotateX,viewPoint} from './core.f3255d41ef05.mjs';
 
 const palette={
   armor:['#8ca77a','#506652','#b8cf9c','#657f5e','#7e9b6d','#9db48a'],

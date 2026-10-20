@@ -51,7 +51,7 @@ let seed=1;const rng=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967
 for(const [id,mode]of Object.entries(modes))for(const model of ['sphere','human']){
   const run=new Session(id,'hard',30,model,rng),before=run.targets.map(t=>({...t}));
   run.tick(2,{x:0,y:0,z:-1},false,origin);
-  assert.equal(run.targets.length,mode.count);
+  assert.equal(run.targets.length,1,'Every mode must keep exactly one active target');
   assert.ok(run.targets.every(t=>Number.isFinite(t.x)&&t.x>=-11&&t.x<=11&&t.hp===100));
   if(mode.pattern==='static')assert.deepEqual(run.targets.map(t=>t.x),before.map(t=>t.x));
   else assert.ok(run.targets.some((t,i)=>Math.hypot(t.x-before[i].x,t.y-before[i].y,t.z-before[i].z)>.1));
@@ -77,4 +77,24 @@ for(const model of ['sphere','human']){
   assert.equal(sequential.kills,12);
 }
 
-console.log('PASS: translated camera aim, articulated hitboxes, head/body damage, replacement, old click scoring, automatic-fire cadence at 30/60/144 FPS, tracking, WASD bounds, all 16 mode/model combinations.');
+
+for(const id of ['flick','dynamic','popcorn','health','strafe'])for(const model of ['sphere','human']){
+  const run=new Session(id,'normal',30,model,rng);
+  assert.equal(run.targets.length,1);
+  for(let i=0;i<5;i++){
+    const current=run.targets[0];
+    assert.equal(run.fire({x:0,y:1,z:0},origin),false);
+    assert.equal(run.targets[0],current,'A miss must not advance any mode');
+    let hit;
+    do{
+      const center=model==='human'?bodyParts(current,run.elapsed).find(p=>p.tone==='armor'):current;
+      hit=run.fire(aim(center),origin);
+      assert.ok(hit);
+      assert.equal(run.targets.length,1,'Firing must never create simultaneous targets');
+      if(!hit.killed)assert.equal(run.targets[0],current,'Damage without a kill must keep the current target');
+    }while(!hit.killed);
+    assert.notEqual(run.targets[0].id,current.id);
+  }
+}
+
+console.log('PASS: translated camera aim, articulated hitboxes, head/body damage, replacement, old click scoring, automatic-fire cadence at 30/60/144 FPS, tracking, WASD bounds, all 16 mode/model combinations, and single-target hit/damage/kill transitions.');
