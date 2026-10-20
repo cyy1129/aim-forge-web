@@ -188,7 +188,7 @@ function syncFullscreen(){
   const native=document.fullscreenElement===training,immersive=training.classList.contains('immersive'),active=native||immersive;
   const label=active?(native?'退出全屏':'退出专注模式'):'全屏训练';
   $('fullscreenLabel').textContent=label;
-  $('fullscreenShortcut').textContent=active?'ESC':'F';
+  $('fullscreenIcon')?.setAttribute('d',active?'M3 8h5V3m8 0v5h5M8 21v-5H3m18 0h-5v5':'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5');
   $('fullscreen').setAttribute('aria-label',active?label:'进入全屏训练');
   $('fullscreen').setAttribute('aria-pressed',String(active));
   $('fullscreen').title=active?'退出全屏（Esc / F）':'全屏训练（F）';
