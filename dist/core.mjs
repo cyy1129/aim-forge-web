@@ -3,7 +3,7 @@ export const FLOOR = -4.2;
 export const modes = {
   flick: {name:'精准点射',tag:'FLICKING',count:3,kind:'click',pattern:'static',icon:'⌖',description:'快速定位，头部命中获得额外分数'},
   track: {name:'平滑跟枪',tag:'TRACKING',count:1,kind:'track',pattern:'smooth',icon:'◎',description:'按住左键，平稳追踪目标'},
-  switch: {name:'多目标点射',tag:'MULTI CLICK',count:6,kind:'click',pattern:'static',icon:'⁙',description:'连续命中分散的静止目标'},
+  switch: {name:'单靶切换',tag:'SEQUENTIAL',count:1,kind:'click',pattern:'static',icon:'⌖',description:'一次只出现一个目标，命中后随机刷新下一个'},
   dynamic: {name:'移动靶点射',tag:'DYNAMIC CLICK',count:4,kind:'click',pattern:'linear',icon:'↗',description:'目标横向移动，抓住开枪时机'},
   reactive: {name:'急变向跟枪',tag:'REACTIVE',count:1,kind:'track',pattern:'reactive',icon:'⌁',description:'读取突然变向，迅速修正准星'},
   popcorn: {name:'跳跃靶挑战',tag:'POPCORN',count:3,kind:'click',pattern:'bounce',icon:'↟',description:'瞄准弹跳目标，掌握垂直节奏'},

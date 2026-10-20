@@ -58,4 +58,23 @@ for(const [id,mode]of Object.entries(modes))for(const model of ['sphere','human'
   if(id==='popcorn')assert.ok(run.targets.some(t=>t.y>t.baseY+.2));
   if(model==='human'&&mode.pattern!=='bounce')assert.ok(run.targets.every(t=>t.y>FLOOR));
 }
+
+for(const model of ['sphere','human']){
+  const sequential=new Session('switch','normal',30,model,rng);
+  assert.equal(sequential.targets.length,1,'Sequential practice starts with one target');
+  for(let i=0;i<12;i++){
+    const current=sequential.targets[0],before={x:current.x,y:current.y,z:current.z};
+    assert.equal(sequential.shoot({x:0,y:1,z:0},origin),false);
+    assert.equal(sequential.targets.length,1);
+    assert.equal(sequential.targets[0],current,'Missing must keep the current target');
+    const center=model==='human'?bodyParts(current,sequential.elapsed).find(p=>p.tone==='armor'):current;
+    assert.ok(sequential.shoot(aim(center),origin));
+    assert.equal(sequential.targets.length,1,'Every hit replaces the target without adding extra targets');
+    const next=sequential.targets[0];
+    assert.notEqual(next.id,current.id);
+    assert.notDeepEqual({x:next.x,y:next.y,z:next.z},before,'Next target appears at a new random position');
+  }
+  assert.equal(sequential.kills,12);
+}
+
 console.log('PASS: translated camera aim, articulated hitboxes, head/body damage, replacement, old click scoring, automatic-fire cadence at 30/60/144 FPS, tracking, WASD bounds, all 16 mode/model combinations.');
